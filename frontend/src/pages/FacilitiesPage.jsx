@@ -4,14 +4,12 @@ import { fetchFromAPI } from '../services/api';
 const FacilitiesPage = () => {
     const [resources, setResources] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
-
+    const [searchTerm, setSearchTerm] = useState('');
+    const [filterType, setFilterType] = useState('ALL');
+    const [editingId, setEditingId] = useState(null);
     const [formData, setFormData] = useState({
         name: '', type: 'LECTURE_HALL', capacity: '', location: '', availabilityWindows: '', status: 'ACTIVE'
     });
-    
-    // NEW: A state to track if we are editing an existing room, or creating a new one
-    const [editingId, setEditingId] = useState(null);
 
     useEffect(() => {
         const loadResources = async () => {
@@ -20,156 +18,152 @@ const FacilitiesPage = () => {
                 setResources(data);
                 setLoading(false);
             } catch (err) {
-                setError('Failed to load resources. Make sure your backend is running!');
                 setLoading(false);
             }
         };
         loadResources();
     }, []);
 
-    const handleInputChange = (e) => {
-        setFormData({ ...formData, [e.target.name]: e.target.value });
-    };
+    const handleInputChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
     const handleSubmit = async (e) => {
         e.preventDefault(); 
         try {
             if (editingId) {
-                // --- NEW: The PUT Request (Update) ---
-                const updatedResource = await fetchFromAPI(`/resources/${editingId}`, {
-                    method: 'PUT',
-                    body: JSON.stringify(formData)
-                });
-                
-                // Find the old resource in our table and replace it with the newly updated one
-                setResources(resources.map(r => r.id === editingId ? updatedResource : r));
-                setEditingId(null); // Turn off edit mode
+                const updated = await fetchFromAPI(`/resources/${editingId}`, { method: 'PUT', body: JSON.stringify(formData) });
+                setResources(resources.map(r => r.id === editingId ? updated : r));
+                setEditingId(null); 
             } else {
-                // --- The POST Request (Create) ---
-                const addedResource = await fetchFromAPI('/resources', {
-                    method: 'POST',
-                    body: JSON.stringify(formData)
-                });
-                setResources([...resources, addedResource]);
+                const added = await fetchFromAPI('/resources', { method: 'POST', body: JSON.stringify(formData) });
+                setResources([...resources, added]);
             }
-            
-            // Clear the form
-            setFormData({
-                name: '', type: 'LECTURE_HALL', capacity: '', location: '', availabilityWindows: '', status: 'ACTIVE'
-            });
+            setFormData({ name: '', type: 'LECTURE_HALL', capacity: '', location: '', availabilityWindows: '', status: 'ACTIVE' });
         } catch (err) {
-            alert("Failed to save to database. Check if the server is running.");
+            alert("Failed to save.");
         }
     };
 
-    // --- NEW: The Edit Button Click Handler ---
     const handleEditClick = (resource) => {
-        setFormData(resource); // Fill the form with the resource's current data
-        setEditingId(resource.id); // Tell the app we are in edit mode
-        window.scrollTo({ top: 0, behavior: 'smooth' }); // Scroll back to the top so they see the form
+        setFormData(resource);
+        setEditingId(resource.id);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
     const handleDelete = async (id) => {
         if (!window.confirm("Are you sure you want to delete this resource?")) return;
         try {
             await fetchFromAPI(`/resources/${id}`, { method: 'DELETE' });
-            setResources(resources.filter(resource => resource.id !== id));
+            setResources(resources.filter(r => r.id !== id));
         } catch (err) {
-            alert("Failed to delete. Check if the server is running.");
+            alert("Failed to delete.");
         }
     };
 
-    // --- NEW: A helper to cancel editing ---
-    const cancelEdit = () => {
-        setEditingId(null);
-        setFormData({ name: '', type: 'LECTURE_HALL', capacity: '', location: '', availabilityWindows: '', status: 'ACTIVE' });
+    const filteredResources = resources.filter(r => {
+        const matchesSearch = r.name.toLowerCase().includes(searchTerm.toLowerCase()) || r.location.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesType = filterType === 'ALL' || r.type === filterType;
+        return matchesSearch && matchesType;
+    });
+
+    // UI/UX Styling Objects
+    const styles = {
+        container: { padding: '30px', fontFamily: '"Segoe UI", Roboto, Helvetica, Arial, sans-serif', maxWidth: '1200px', margin: '0 auto', backgroundColor: '#f4f7f6', minHeight: '100vh' },
+        header: { color: '#2c3e50', fontSize: '28px', marginBottom: '5px', fontWeight: 'bold' },
+        subHeader: { color: '#7f8c8d', fontSize: '16px', marginBottom: '30px' },
+        card: { backgroundColor: '#ffffff', padding: '25px', borderRadius: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)', marginBottom: '30px', border: '1px solid #eef2f5' },
+        input: { padding: '12px', borderRadius: '8px', border: '1px solid #dcdde1', fontSize: '14px', flex: '1 1 200px', outline: 'none' },
+        buttonPrimary: { padding: '12px 20px', backgroundColor: '#3498db', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', transition: '0.2s', flex: '1 1 100%' },
+        buttonEdit: { padding: '6px 12px', backgroundColor: '#f1c40f', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', marginRight: '8px', fontWeight: 'bold', fontSize: '12px' },
+        buttonDelete: { padding: '6px 12px', backgroundColor: '#e74c3c', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' },
+        table: { width: '100%', borderCollapse: 'collapse', marginTop: '10px' },
+        th: { backgroundColor: '#f8f9fa', color: '#2c3e50', padding: '15px', textAlign: 'left', borderBottom: '2px solid #e1e8ed', fontWeight: '600' },
+        td: { padding: '15px', borderBottom: '1px solid #e1e8ed', color: '#34495e', fontSize: '14px' },
+        badgeActive: { backgroundColor: '#e8f8f5', color: '#27ae60', padding: '6px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: 'bold', display: 'inline-block' },
+        badgeInactive: { backgroundColor: '#fdedec', color: '#c0392b', padding: '6px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: 'bold', display: 'inline-block' }
     };
 
-    if (loading) return <p style={{ padding: '20px' }}>Loading facilities...</p>;
-    if (error) return <p style={{ color: 'red', padding: '20px' }}>{error}</p>;
+    if (loading) return <div style={{...styles.container, textAlign: 'center', paddingTop: '100px'}}><h2>Loading Operations Hub...</h2></div>;
 
     return (
-        <div style={{ padding: '20px', fontFamily: 'sans-serif', maxWidth: '1000px', margin: '0 auto' }}>
-            <h2>Facilities & Assets Catalogue</h2>
-            <p>Manage all bookable rooms, labs, and equipment.</p>
+        <div style={styles.container}>
+            <h2 style={styles.header}>Facilities & Assets Catalogue</h2>
+            <p style={styles.subHeader}>Smart Campus Operations Hub - Manage Resources</p>
 
-            <div style={{ background: '#f9f9f9', padding: '20px', borderRadius: '8px', marginBottom: '20px', border: '1px solid #ddd' }}>
-                {/* Dynamically change the title based on if we are editing or not */}
-                <h3 style={{ marginTop: 0 }}>{editingId ? "Edit Resource" : "Add New Resource"}</h3>
-                
-                <form onSubmit={handleSubmit} style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                    <input type="text" name="name" placeholder="Name (e.g., Mini Lab)" value={formData.name} onChange={handleInputChange} required style={{ padding: '8px', flex: '1 1 200px' }} />
-                    <select name="type" value={formData.type} onChange={handleInputChange} style={{ padding: '8px', flex: '1 1 150px' }}>
+            {/* Form Card */}
+            <div style={styles.card}>
+                <h3 style={{ marginTop: 0, color: '#2c3e50', marginBottom: '20px' }}>{editingId ? "✏️ Edit Resource" : "➕ Add New Resource"}</h3>
+                <form onSubmit={handleSubmit} style={{ display: 'flex', gap: '15px', flexWrap: 'wrap' }}>
+                    <input type="text" name="name" placeholder="Name (e.g., Mini Lab)" value={formData.name} onChange={handleInputChange} required style={styles.input} />
+                    <select name="type" value={formData.type} onChange={handleInputChange} style={styles.input}>
                         <option value="LECTURE_HALL">Lecture Hall</option>
                         <option value="LAB">Laboratory</option>
                         <option value="EQUIPMENT">Equipment</option>
                         <option value="MEETING_ROOM">Meeting Room</option>
                     </select>
-                    <input type="number" name="capacity" placeholder="Capacity (0 for items)" value={formData.capacity} onChange={handleInputChange} required style={{ padding: '8px', flex: '1 1 100px' }} />
-                    <input type="text" name="location" placeholder="Location" value={formData.location} onChange={handleInputChange} required style={{ padding: '8px', flex: '1 1 150px' }} />
-                    <input type="text" name="availabilityWindows" placeholder="Hours (e.g., 08:00-17:00)" value={formData.availabilityWindows} onChange={handleInputChange} required style={{ padding: '8px', flex: '1 1 150px' }} />
-                    <select name="status" value={formData.status} onChange={handleInputChange} style={{ padding: '8px', flex: '1 1 120px' }}>
+                    <input type="number" name="capacity" placeholder="Capacity (0 for items)" value={formData.capacity} onChange={handleInputChange} required style={styles.input} />
+                    <input type="text" name="location" placeholder="Location" value={formData.location} onChange={handleInputChange} required style={styles.input} />
+                    <input type="text" name="availabilityWindows" placeholder="Hours (e.g., 08:00-17:00)" value={formData.availabilityWindows} onChange={handleInputChange} required style={styles.input} />
+                    <select name="status" value={formData.status} onChange={handleInputChange} style={styles.input}>
                         <option value="ACTIVE">Active</option>
                         <option value="OUT_OF_SERVICE">Out of Service</option>
                     </select>
-                    
-                    <button type="submit" style={{ padding: '8px 16px', backgroundColor: editingId ? '#28a745' : '#0056b3', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', flex: editingId ? '1 1 45%' : '1 1 100%' }}>
-                        {editingId ? "Update Resource" : "Save Resource"}
-                    </button>
-                    
-                    {/* NEW: Cancel button that only shows up when editing */}
-                    {editingId && (
-                        <button type="button" onClick={cancelEdit} style={{ padding: '8px 16px', backgroundColor: '#6c757d', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', flex: '1 1 45%' }}>
-                            Cancel
-                        </button>
-                    )}
+                    <button type="submit" style={{...styles.buttonPrimary, backgroundColor: editingId ? '#27ae60' : '#3498db'}}>{editingId ? "Update Resource" : "Save Resource"}</button>
+                    {editingId && <button type="button" onClick={() => {setEditingId(null); setFormData({name: '', type: 'LECTURE_HALL', capacity: '', location: '', availabilityWindows: '', status: 'ACTIVE'});}} style={{...styles.buttonPrimary, backgroundColor: '#95a5a6', flex: '1 1 45%'}}>Cancel</button>}
                 </form>
             </div>
 
-            <table border="1" cellPadding="10" style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
-                <thead>
-                    <tr style={{ backgroundColor: '#f2f2f2' }}>
-                        <th>Name</th>
-                        <th>Type</th>
-                        <th>Capacity</th>
-                        <th>Location</th>
-                        <th>Availability</th>
-                        <th>Status</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {resources.map((resource) => (
-                        <tr key={resource.id}>
-                            <td>{resource.name}</td>
-                            <td>{resource.type}</td>
-                            <td>{resource.capacity}</td>
-                            <td>{resource.location}</td>
-                            <td>{resource.availabilityWindows}</td>
-                            <td>
-                                <span style={{ color: resource.status === 'ACTIVE' ? 'green' : 'red', fontWeight: 'bold' }}>
-                                    {resource.status}
-                                </span>
-                            </td>
-                            <td>
-                                {/* NEW: Edit Button */}
-                                <button 
-                                    onClick={() => handleEditClick(resource)} 
-                                    style={{ padding: '4px 8px', backgroundColor: '#ffc107', color: 'black', border: 'none', borderRadius: '4px', cursor: 'pointer', marginRight: '5px' }}
-                                >
-                                    Edit
-                                </button>
-                                <button 
-                                    onClick={() => handleDelete(resource.id)} 
-                                    style={{ padding: '4px 8px', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-                                >
-                                    Delete
-                                </button>
-                            </td>
-                        </tr>
-                    ))}
-                </tbody>
-            </table>
+            {/* Data Grid Card */}
+            <div style={styles.card}>
+                <div style={{ display: 'flex', gap: '15px', marginBottom: '20px' }}>
+                    <input type="text" placeholder="🔍 Search by name or location..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} style={{...styles.input, flex: '2'}} />
+                    <select value={filterType} onChange={(e) => setFilterType(e.target.value)} style={styles.input}>
+                        <option value="ALL">All Types</option>
+                        <option value="LECTURE_HALL">Lecture Halls</option>
+                        <option value="LAB">Laboratories</option>
+                        <option value="EQUIPMENT">Equipment</option>
+                        <option value="MEETING_ROOM">Meeting Rooms</option>
+                    </select>
+                </div>
+
+                <div style={{ overflowX: 'auto' }}>
+                    <table style={styles.table}>
+                        <thead>
+                            <tr>
+                                <th style={styles.th}>Name</th>
+                                <th style={styles.th}>Type</th>
+                                <th style={styles.th}>Capacity</th>
+                                <th style={styles.th}>Location</th>
+                                <th style={styles.th}>Availability</th>
+                                <th style={styles.th}>Status</th>
+                                <th style={styles.th}>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {filteredResources.map((r) => (
+                                <tr key={r.id} style={{ transition: 'background-color 0.2s' }} onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#f8f9fa'} onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
+                                    <td style={{...styles.td, fontWeight: 'bold'}}>{r.name}</td>
+                                    <td style={styles.td}>{r.type.replace('_', ' ')}</td>
+                                    <td style={styles.td}>{r.capacity === 0 ? '-' : r.capacity}</td>
+                                    <td style={styles.td}>{r.location}</td>
+                                    <td style={styles.td}>{r.availabilityWindows}</td>
+                                    <td style={styles.td}>
+                                        <span style={r.status === 'ACTIVE' ? styles.badgeActive : styles.badgeInactive}>
+                                            {r.status === 'ACTIVE' ? '🟢 Active' : '🔴 Maintenance'}
+                                        </span>
+                                    </td>
+                                    <td style={styles.td}>
+                                        <button onClick={() => handleEditClick(r)} style={styles.buttonEdit}>Edit</button>
+                                        <button onClick={() => handleDelete(r.id)} style={styles.buttonDelete}>Delete</button>
+                                    </td>
+                                </tr>
+                            ))}
+                            {filteredResources.length === 0 && (
+                                <tr><td colSpan="7" style={{...styles.td, textAlign: 'center', padding: '30px', color: '#7f8c8d'}}>No resources match your search criteria.</td></tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
     );
 };
