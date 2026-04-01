@@ -86,6 +86,12 @@ const FacilitiesPage = () => {
 
     return (
         <div style={styles.container}>
+            <div style={{ textAlign: 'right', marginBottom: '10px' }}>
+                <a href="http://localhost:8080/oauth2/authorization/google" 
+                    style={{ padding: '10px', background: '#4285F4', color: 'white', borderRadius: '5px', textDecoration: 'none' }}>
+                        Login with Google
+                </a>
+            </div>
             <h2 style={styles.header}>Facilities & Assets Catalogue</h2>
             <p style={styles.subHeader}>Smart Campus Operations Hub - Manage Resources</p>
 

@@ -1,12 +1,16 @@
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import LoginPage from './pages/LoginPage';
 import FacilitiesPage from './pages/FacilitiesPage';
 
 function App() {
   return (
-    <div>
-      {/* We are telling the main App to render your new page right here */}
-      <FacilitiesPage />
-    </div>
+    <Router>
+      <Routes>
+        <Route path="/" element={<LoginPage />} />
+        <Route path="/dashboard" element={<FacilitiesPage />} />
+        <Route path="*" element={<Navigate to="/" />} />
+      </Routes>
+    </Router>
   );
 }
-
 export default App;
