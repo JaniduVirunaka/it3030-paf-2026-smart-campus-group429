@@ -15,10 +15,10 @@ jobs:
     - name: Checkout Repository
       uses: actions/checkout@v3
       
-    - name: Set up JDK 17
+    - name: Set up JDK 21
       uses: actions/setup-java@v3
       with:
-        java-version: '17'
+        java-version: '21'
         distribution: 'temurin'
         cache: maven
         
@@ -50,8 +50,5 @@ jobs:
 
     - name: Run Playwright Tests
       working-directory: ./frontend
-      # We start the Vite server in the background, then run the tests!
-      run: |
-        npm run dev & 
-        npx wait-on http://localhost:5173
-        npx playwright test
+      # Playwright will automatically run 'npm run dev', wait for port 5173, and run tests!
+      run: npx playwright test
