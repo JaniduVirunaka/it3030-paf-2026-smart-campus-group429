@@ -11,6 +11,7 @@ const FacilitiesPage = () => {
     const [formData, setFormData] = useState({
         name: '', type: 'LECTURE_HALL', capacity: '', location: '', availabilityWindows: '', status: 'ACTIVE'
     });
+    const [fieldErrors, setFieldErrors] = useState({});
 
     const [user, setUser] = useState(null);
     const [authLoading, setAuthLoading] = useState(true); 
@@ -74,7 +75,8 @@ const FacilitiesPage = () => {
         th: { backgroundColor: '#f8f9fa', color: '#2c3e50', padding: '15px', textAlign: 'left', borderBottom: '2px solid #e1e8ed', fontWeight: '600' },
         td: { padding: '15px', borderBottom: '1px solid #e1e8ed', color: '#34495e', fontSize: '14px' },
         badgeActive: { backgroundColor: '#e8f8f5', color: '#27ae60', padding: '6px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: 'bold', display: 'inline-block' },
-        badgeInactive: { backgroundColor: '#fdedec', color: '#c0392b', padding: '6px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: 'bold', display: 'inline-block' }
+        badgeInactive: { backgroundColor: '#fdedec', color: '#c0392b', padding: '6px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: 'bold', display: 'inline-block' },
+        errorText: { color: '#e74c3c', fontSize: '12px', marginTop: '4px', display: 'block', fontWeight: 'bold' }
     };
 
     if (authLoading || loading) {
@@ -90,20 +92,50 @@ const FacilitiesPage = () => {
 
     const handleInputChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
-    const handleSubmit = async (e) => {
+  const handleSubmit = async (e) => {
         e.preventDefault(); 
+        setFieldErrors({}); // Clear any previous errors on new submission
+
         try {
+            // Determine the URL and Method based on whether we are editing or adding
+            const url = editingId ? `http://localhost:8080/api/resources/${editingId}` : 'http://localhost:8080/api/resources';
+            const method = editingId ? 'PUT' : 'POST';
+
+            const response = await fetch(url, {
+                method: method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(formData),
+                credentials: 'include' // Ensures OAuth context is passed
+            });
+
+            // If the backend rejects the data (e.g., Validation Failed)
+            if (!response.ok) {
+                if (response.status === 400) {
+                    const errorData = await response.json();
+                    if (errorData.errors) {
+                        setFieldErrors(errorData.errors); // Save the specific field errors to state
+                        return; // Stop the function here
+                    }
+                }
+                throw new Error('Something went wrong on the server');
+            }
+
+            // If successful, parse the saved resource
+            const savedResource = await response.json();
+
             if (editingId) {
-                const updated = await fetchFromAPI(`/resources/${editingId}`, { method: 'PUT', body: JSON.stringify(formData) });
-                setResources(resources.map(r => r.id === editingId ? updated : r));
+                setResources(resources.map(r => r.id === editingId ? savedResource : r));
                 setEditingId(null); 
             } else {
-                const added = await fetchFromAPI('/resources', { method: 'POST', body: JSON.stringify(formData) });
-                setResources([...resources, added]);
+                setResources([...resources, savedResource]);
             }
+            
+            // Reset form on success
             setFormData({ name: '', type: 'LECTURE_HALL', capacity: '', location: '', availabilityWindows: '', status: 'ACTIVE' });
+            
         } catch (err) {
-            alert("Failed to save.");
+            console.error("Save error:", err);
+            alert("An unexpected error occurred while saving.");
         }
     };
 
@@ -229,23 +261,72 @@ const FacilitiesPage = () => {
             {isAdmin && (
                 <div style={styles.card}>
                     <h3 style={{ marginTop: 0, color: '#2c3e50', marginBottom: '20px' }}>{editingId ? "✏️ Edit Resource" : "➕ Add New Resource"}</h3>
-                    <form onSubmit={handleSubmit} style={{ display: 'flex', gap: '15px', flexWrap: 'wrap' }}>
-                        <input type="text" name="name" placeholder="Name (e.g., Mini Lab)" value={formData.name} onChange={handleInputChange} required style={styles.input} />
-                        <select name="type" value={formData.type} onChange={handleInputChange} style={styles.input}>
-                            <option value="LECTURE_HALL">Lecture Hall</option>
-                            <option value="LAB">Laboratory</option>
-                            <option value="EQUIPMENT">Equipment</option>
-                            <option value="MEETING_ROOM">Meeting Room</option>
-                        </select>
-                        <input type="number" name="capacity" placeholder="Capacity (0 for items)" value={formData.capacity} onChange={handleInputChange} required style={styles.input} />
-                        <input type="text" name="location" placeholder="Location" value={formData.location} onChange={handleInputChange} required style={styles.input} />
-                        <input type="text" name="availabilityWindows" placeholder="Hours (e.g., 08:00-17:00)" value={formData.availabilityWindows} onChange={handleInputChange} required style={styles.input} />
-                        <select name="status" value={formData.status} onChange={handleInputChange} style={styles.input}>
-                            <option value="ACTIVE">Active</option>
-                            <option value="OUT_OF_SERVICE">Out of Service</option>
-                        </select>
-                        <button type="submit" style={{...styles.buttonPrimary, backgroundColor: editingId ? '#27ae60' : '#3498db'}}>{editingId ? "Update Resource" : "Save Resource"}</button>
-                        {editingId && <button type="button" onClick={() => {setEditingId(null); setFormData({name: '', type: 'LECTURE_HALL', capacity: '', location: '', availabilityWindows: '', status: 'ACTIVE'});}} style={{...styles.buttonPrimary, backgroundColor: '#95a5a6', flex: '1 1 45%'}}>Cancel</button>}
+                   <form onSubmit={handleSubmit} style={{ display: 'flex', gap: '15px', flexWrap: 'wrap' }}>
+                        
+                        {/* Name Input */}
+                        <div style={{ flex: '1 1 200px' }}>
+                            <input type="text" name="name" placeholder="Name (e.g., Mini Lab)" value={formData.name} onChange={handleInputChange} 
+                                style={{...styles.input, width: '100%', borderColor: fieldErrors.name ? '#e74c3c' : '#dcdde1', boxSizing: 'border-box'}} />
+                            {fieldErrors.name && <span style={styles.errorText}>{fieldErrors.name}</span>}
+                        </div>
+
+                        {/* Type Dropdown */}
+                        <div style={{ flex: '1 1 200px' }}>
+                            <select name="type" value={formData.type} onChange={handleInputChange} 
+                                style={{...styles.input, width: '100%', borderColor: fieldErrors.type ? '#e74c3c' : '#dcdde1', boxSizing: 'border-box'}}>
+                                <option value="LECTURE_HALL">Lecture Hall</option>
+                                <option value="LAB">Laboratory</option>
+                                <option value="EQUIPMENT">Equipment</option>
+                                <option value="MEETING_ROOM">Meeting Room</option>
+                            </select>
+                            {fieldErrors.type && <span style={styles.errorText}>{fieldErrors.type}</span>}
+                        </div>
+
+                        {/* Capacity Input */}
+                        <div style={{ flex: '1 1 200px' }}>
+                            <input type="number" name="capacity" placeholder="Capacity (0 for items)" value={formData.capacity} onChange={handleInputChange} 
+                                style={{...styles.input, width: '100%', borderColor: fieldErrors.capacity ? '#e74c3c' : '#dcdde1', boxSizing: 'border-box'}} />
+                            {fieldErrors.capacity && <span style={styles.errorText}>{fieldErrors.capacity}</span>}
+                        </div>
+
+                        {/* Location Input */}
+                        <div style={{ flex: '1 1 200px' }}>
+                            <input type="text" name="location" placeholder="Location" value={formData.location} onChange={handleInputChange} 
+                                style={{...styles.input, width: '100%', borderColor: fieldErrors.location ? '#e74c3c' : '#dcdde1', boxSizing: 'border-box'}} />
+                            {fieldErrors.location && <span style={styles.errorText}>{fieldErrors.location}</span>}
+                        </div>
+
+                        {/* Availability Windows Input */}
+                        <div style={{ flex: '1 1 200px' }}>
+                            <input type="text" name="availabilityWindows" placeholder="Hours (e.g., 08:00-17:00)" value={formData.availabilityWindows} onChange={handleInputChange} 
+                                style={{...styles.input, width: '100%', borderColor: fieldErrors.availabilityWindows ? '#e74c3c' : '#dcdde1', boxSizing: 'border-box'}} />
+                            {fieldErrors.availabilityWindows && <span style={styles.errorText}>{fieldErrors.availabilityWindows}</span>}
+                        </div>
+
+                        {/* Status Dropdown */}
+                        <div style={{ flex: '1 1 200px' }}>
+                            <select name="status" value={formData.status} onChange={handleInputChange} 
+                                style={{...styles.input, width: '100%', borderColor: fieldErrors.status ? '#e74c3c' : '#dcdde1', boxSizing: 'border-box'}}>
+                                <option value="ACTIVE">Active</option>
+                                <option value="OUT_OF_SERVICE">Out of Service</option>
+                            </select>
+                            {fieldErrors.status && <span style={styles.errorText}>{fieldErrors.status}</span>}
+                        </div>
+
+                        {/* Buttons */}
+                        <button type="submit" style={{...styles.buttonPrimary, backgroundColor: editingId ? '#27ae60' : '#3498db'}}>
+                            {editingId ? "Update Resource" : "Save Resource"}
+                        </button>
+                        
+                        {editingId && 
+                            <button type="button" onClick={() => {
+                                setEditingId(null); 
+                                setFieldErrors({}); // Clear errors on cancel
+                                setFormData({name: '', type: 'LECTURE_HALL', capacity: '', location: '', availabilityWindows: '', status: 'ACTIVE'});
+                            }} style={{...styles.buttonPrimary, backgroundColor: '#95a5a6', flex: '1 1 45%'}}>
+                                Cancel
+                            </button>
+                        }
                     </form>
                 </div>
             )}
