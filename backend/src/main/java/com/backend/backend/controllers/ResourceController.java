@@ -6,7 +6,16 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile; // NEW: For file uploads
 
+import jakarta.servlet.http.HttpServletResponse;
+import java.io.BufferedReader; // NEW: For reading the file
+import java.io.IOException;
+import java.io.InputStreamReader; // NEW: For reading the file
+import java.io.PrintWriter;
+import java.nio.charset.StandardCharsets; // NEW: To handle text encoding
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -61,6 +70,84 @@ public class ResourceController {
             return ResponseEntity.ok().body(Map.of("success", true, "message", "Resource archived safely."));
         } else {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("success", false, "message", "Resource not found."));
+        }
+    }
+
+    // EXPORT ENDPOINT
+    @GetMapping("/export")
+    public void exportResourcesToCSV(HttpServletResponse response) throws IOException {
+        response.setContentType("text/csv");
+        response.setHeader("Content-Disposition", "attachment; filename=\"campus_resources.csv\"");
+
+        PrintWriter writer = response.getWriter();
+
+        // Writing the headers to match your React form data!
+        writer.println("Name,Type,Capacity,Location,AvailabilityWindows,Status");
+
+        // Mock data for testing the export download
+        writer.println("Mini Lab,LAB,30,Block B,08:00-17:00,ACTIVE");
+        writer.println("Main Hall,LECTURE_HALL,200,Main Building,08:00-20:00,ACTIVE");
+        writer.println("Sony Projector,EQUIPMENT,0,IT Dept,08:00-17:00,OUT_OF_SERVICE");
+
+        writer.flush();
+        writer.close();
+    }
+
+    // NEW: IMPORT ENDPOINT
+    @PostMapping("/import")
+    public ResponseEntity<Map<String, String>> importResourcesFromCSV(@RequestParam("file") MultipartFile file) {
+        Map<String, String> response = new HashMap<>();
+
+        if (file.isEmpty()) {
+            response.put("error", "Please upload a valid CSV file.");
+            return ResponseEntity.badRequest().body(response);
+        }
+
+        try (BufferedReader fileReader = new BufferedReader(new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8))) {
+            List<Resource> resourcesToSave = new ArrayList<>(); 
+            String line;
+            boolean isFirstRow = true;
+
+            while ((line = fileReader.readLine()) != null) {
+                if (isFirstRow) {
+                    isFirstRow = false; // Skip the header row
+                    continue;
+                }
+
+                String[] data = line.split(",");
+
+                // Make sure the row has the expected 6 columns (Name, Type, Capacity, Location, Availability, Status)
+                if (data.length >= 6) {
+                    Resource resource = new Resource();
+                    resource.setName(data[0].trim());
+                    resource.setType(data[1].trim());
+                    
+                    try {
+                        resource.setCapacity(Integer.parseInt(data[2].trim()));
+                    } catch (NumberFormatException e) {
+                        resource.setCapacity(0); 
+                    }
+                    
+                    resource.setLocation(data[3].trim());
+                    resource.setAvailabilityWindows(data[4].trim());
+                    resource.setStatus(data[5].trim());
+
+                    resourcesToSave.add(resource);
+                }
+            }
+
+            // Save each valid resource using your existing service method
+            for (Resource res : resourcesToSave) {
+                resourceService.createResource(res);
+            }
+
+            response.put("message", "Successfully imported " + resourcesToSave.size() + " resources!");
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            response.put("error", "Failed to process the CSV file: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
         }
     }
 }

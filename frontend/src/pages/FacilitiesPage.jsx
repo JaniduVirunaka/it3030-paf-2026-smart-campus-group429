@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { fetchFromAPI } from '../services/api'; 
 
 const FacilitiesPage = () => {
@@ -13,6 +13,11 @@ const FacilitiesPage = () => {
 
     const [user, setUser] = useState(null);
     const [authLoading, setAuthLoading] = useState(true); 
+    
+    // --- NEW: States and Refs for CSV Export/Import ---
+    const [isExporting, setIsExporting] = useState(false);
+    const [isImporting, setIsImporting] = useState(false);
+    const fileInputRef = useRef(null);
 
     useEffect(() => {
         const checkAuth = async () => {
@@ -39,12 +44,10 @@ const FacilitiesPage = () => {
         const loadResources = async () => {
             try {
                 const data = await fetchFromAPI('/resources');
-                // --- FIX: If data is null or undefined, force it to be an empty array [] ---
                 setResources(data || []); 
                 setLoading(false);
             } catch (err) {
                 console.error("Failed to load resources", err);
-                // Also default to empty array on error so it doesn't crash!
                 setResources([]); 
                 setLoading(false);
             }
@@ -52,10 +55,8 @@ const FacilitiesPage = () => {
         loadResources();
     }, []);
 
-    // Only show the "Add New Resource" form IF the user has the ADMIN role
-    const isAdmin = user?.roles?.includes('ROLE_ADMIN')|| user?.email === 'janiduvirunkadev@gmail.com';
+    const isAdmin = user?.roles?.includes('ROLE_ADMIN') || user?.email === 'janiduvirunkadev@gmail.com';
 
-    // --- FIX: Styles moved up here so the loading screen can see them! ---
     const styles = {
         container: { padding: '30px', fontFamily: '"Segoe UI", Roboto, Helvetica, Arial, sans-serif', maxWidth: '1200px', margin: '0 auto', backgroundColor: '#f4f7f6', minHeight: '100vh' },
         header: { color: '#2c3e50', fontSize: '28px', marginBottom: '5px', fontWeight: 'bold' },
@@ -63,6 +64,9 @@ const FacilitiesPage = () => {
         card: { backgroundColor: '#ffffff', padding: '25px', borderRadius: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)', marginBottom: '30px', border: '1px solid #eef2f5' },
         input: { padding: '12px', borderRadius: '8px', border: '1px solid #dcdde1', fontSize: '14px', flex: '1 1 200px', outline: 'none' },
         buttonPrimary: { padding: '12px 20px', backgroundColor: '#3498db', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', transition: '0.2s', flex: '1 1 100%' },
+        // --- NEW: Styles for CSV buttons ---
+        buttonExport: { padding: '10px 15px', backgroundColor: '#27ae60', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' },
+        buttonImport: { padding: '10px 15px', backgroundColor: '#8e44ad', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' },
         buttonEdit: { padding: '6px 12px', backgroundColor: '#f1c40f', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', marginRight: '8px', fontWeight: 'bold', fontSize: '12px' },
         buttonDelete: { padding: '6px 12px', backgroundColor: '#e74c3c', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' },
         table: { width: '100%', borderCollapse: 'collapse', marginTop: '10px' },
@@ -72,18 +76,16 @@ const FacilitiesPage = () => {
         badgeInactive: { backgroundColor: '#fdedec', color: '#c0392b', padding: '6px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: 'bold', display: 'inline-block' }
     };
 
-  // Show a loading screen while we wait for Spring Boot
     if (authLoading || loading) {
         return (
             <div style={{...styles.container, textAlign: 'center', paddingTop: '100px'}}>
                 <h2 style={{ color: '#2c3e50' }}>Verifying Credentials & Loading Hub...</h2>
                 <p style={{ color: '#e74c3c', fontWeight: 'bold', marginTop: '20px' }}>
-                    If you are stuck on this screen for more than 5 seconds, your Spring Boot server is likely failing to connect to MongoDB Atlas! Check your database IP whitelist.
+                    If you are stuck on this screen for more than 5 seconds, your Spring Boot server is likely failing to connect!
                 </p>
             </div>
         );
     }
-
 
     const handleInputChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
@@ -120,7 +122,68 @@ const FacilitiesPage = () => {
         }
     };
 
-   // --- FIX: Ensure resources is an array before trying to filter ---
+    // --- NEW: Handle CSV Export ---
+    const handleExportCSV = async () => {
+        setIsExporting(true);
+        try {
+            // Note: Using standard fetch because fetchFromAPI might expect JSON
+            // Assuming your backend runs on localhost:8080. Update if different.
+            const response = await fetch('http://localhost:8080/api/resources/export', {
+                method: 'GET',
+                credentials: 'include',
+                // headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` } // Uncomment if needed
+            });
+            if (!response.ok) throw new Error('Export failed');
+            
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', 'campus_resources.csv');
+            document.body.appendChild(link);
+            link.click();
+            link.parentNode.removeChild(link);
+        } catch (err) {
+            console.error(err);
+            alert("Failed to export data.");
+        } finally {
+            setIsExporting(false);
+        }
+    };
+
+    // --- NEW: Handle CSV Import ---
+    const handleImportFileChange = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        setIsImporting(true);
+        const uploadData = new FormData();
+        uploadData.append('file', file);
+
+        try {
+            // Standard fetch because FormData shouldn't have 'Content-Type: application/json'
+            const response = await fetch('http://localhost:8080/api/resources/import', {
+                method: 'POST',
+                body: uploadData,
+                credentials: 'include',
+                // headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` } // Uncomment if needed
+            });
+            
+            if (!response.ok) throw new Error('Import failed');
+            
+            alert("Resources imported successfully!");
+            // Refresh the table data
+            const refreshedData = await fetchFromAPI('/resources');
+            setResources(refreshedData || []);
+        } catch (err) {
+            console.error(err);
+            alert("Failed to import data. Make sure your Spring Boot backend has the /import endpoint.");
+        } finally {
+            setIsImporting(false);
+            e.target.value = null; // Reset file input
+        }
+    };
+
     const filteredResources = (Array.isArray(resources) ? resources : []).filter(r => {
         const matchesSearch = r.name.toLowerCase().includes(searchTerm.toLowerCase()) || r.location.toLowerCase().includes(searchTerm.toLowerCase());
         const matchesType = filterType === 'ALL' || r.type === filterType;
@@ -129,11 +192,34 @@ const FacilitiesPage = () => {
 
     return (
         <div style={styles.container}>
-            <h2 style={styles.header}>Facilities & Assets Catalogue</h2>
-            <p style={styles.subHeader}>Smart Campus Operations Hub - Manage Resources</p>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
+                <div>
+                    <h2 style={{...styles.header, marginBottom: '5px'}}>Facilities & Assets Catalogue</h2>
+                    <p style={{...styles.subHeader, marginBottom: '0'}}>Smart Campus Operations Hub - Manage Resources</p>
+                </div>
 
-            {/* Form Card */}
-            {/* Only show the form if the user is an ADMIN */}
+                {/* --- NEW: Admin Only CSV Actions --- */}
+                {isAdmin && (
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                        <button onClick={handleExportCSV} disabled={isExporting} style={styles.buttonExport}>
+                            {isExporting ? '⏳ Exporting...' : '📥 Export CSV'}
+                        </button>
+                        
+                        {/* Hidden file input triggered by the Import button */}
+                        <input 
+                            type="file" 
+                            accept=".csv" 
+                            style={{ display: 'none' }} 
+                            ref={fileInputRef} 
+                            onChange={handleImportFileChange} 
+                        />
+                        <button onClick={() => fileInputRef.current.click()} disabled={isImporting} style={styles.buttonImport}>
+                            {isImporting ? '⏳ Importing...' : '📤 Import CSV'}
+                        </button>
+                    </div>
+                )}
+            </div>
+
             {isAdmin && (
                 <div style={styles.card}>
                     <h3 style={{ marginTop: 0, color: '#2c3e50', marginBottom: '20px' }}>{editingId ? "✏️ Edit Resource" : "➕ Add New Resource"}</h3>
@@ -158,7 +244,6 @@ const FacilitiesPage = () => {
                 </div>
             )}
 
-            {/* Data Grid Card */}
             <div style={styles.card}>
                 <div style={{ display: 'flex', gap: '15px', marginBottom: '20px' }}>
                     <input type="text" placeholder="🔍 Search by name or location..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} style={{...styles.input, flex: '2'}} />
