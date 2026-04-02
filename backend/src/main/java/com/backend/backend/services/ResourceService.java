@@ -32,6 +32,11 @@ public class ResourceService {
         return resourceRepository.findById(id);
     }
 
+    // NEW METHOD for the Export feature: Fetches absolutely everything
+    public List<Resource> getAllResourcesIncludingArchived() {
+        return resourceRepository.findAll(); 
+    }
+
     // 3. UPDATE (Will be used for PUT)
     // Finds an existing resource and updates its details
     public Resource updateResource(String id, Resource resourceDetails) {
@@ -62,5 +67,26 @@ public class ResourceService {
             return true;
         }
         return false;
+    }
+
+    // NEW: Server-side search and filter logic
+    public List<Resource> searchAndFilterResources(String searchTerm, String type, String status) {
+        // Fetch your active resources from the database
+        List<Resource> allActiveResources = resourceRepository.findAll(); // Or findByStatusNot("DELETED")
+
+        // Use Java Streams to filter the data before sending it to the frontend
+        return allActiveResources.stream().filter(r -> {
+            boolean matchesSearch = searchTerm.isEmpty() || 
+                (r.getName() != null && r.getName().toLowerCase().contains(searchTerm.toLowerCase())) ||
+                (r.getLocation() != null && r.getLocation().toLowerCase().contains(searchTerm.toLowerCase()));
+                
+            boolean matchesType = type.equals("ALL") || 
+                (r.getType() != null && r.getType().equalsIgnoreCase(type));
+                
+            boolean matchesStatus = status.equals("ALL") || 
+                (r.getStatus() != null && r.getStatus().equalsIgnoreCase(status));
+
+            return matchesSearch && matchesType && matchesStatus;
+        }).toList();
     }
 }
