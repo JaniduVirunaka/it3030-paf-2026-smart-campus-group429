@@ -8,15 +8,22 @@ import ThemeToggle from './components/ThemeToggle';
 function App() {
   return (
     <Router>
+      {/* NEW: The ThemeToggle sits outside the <Routes> block. 
+        This makes it a global floating button that appears on every single page! 
+      */}
+      <ThemeToggle />
+
       <Routes>
         <Route path="/" element={<LoginPage />} />
+        <Route path="/dashboard" element={<DashboardPage />} /> 
         <Route path="/facilities" element={<FacilitiesPage />} />
         <Route path="/resource/view/:id" element={<ResourceMobileView />} />
+        
+        {/* Catch-all route should always be the absolute last route */}
         <Route path="*" element={<Navigate to="/" />} />
-        <Route path="/dashboard" element={<DashboardPage />} /> {/* Your Module's Route */}      
-        <Route path="/toggle-theme" element={<ThemeToggle />} /> {/* Theme Toggle Route */} 
       </Routes>
     </Router>
   );
 }
+
 export default App;
