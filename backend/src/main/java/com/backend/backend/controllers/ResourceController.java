@@ -2,6 +2,8 @@ package com.backend.backend.controllers;
 
 import com.backend.backend.models.Resource;
 import com.backend.backend.services.ResourceService;
+import com.backend.backend.utils.QRCodeGenerator;
+import org.springframework.http.MediaType;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -77,6 +79,33 @@ public class ResourceController {
             return ResponseEntity.ok().body(Map.of("success", true, "message", "Resource archived safely."));
         } else {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("success", false, "message", "Resource not found."));
+        }
+    }
+
+    // 5. NEW: Generate QR Code for a specific resource
+    @GetMapping(value = "/{id}/qrcode", produces = MediaType.IMAGE_PNG_VALUE)
+    public ResponseEntity<byte[]> generateResourceQRCode(@PathVariable String id) {
+        try {
+            Optional<Resource> resourceOpt = resourceService.getResourceById(id);
+            
+            if (resourceOpt.isPresent()) {
+                Resource resource = resourceOpt.get();
+                
+                // The text that will be shown when someone scans the code
+                String qrText = "Smart Campus Hub\n" +
+                                "Facility: " + resource.getName() + "\n" +
+                                "Location: " + resource.getLocation() + "\n" +
+                                "Type: " + resource.getType();
+
+                // Generate a 250x250 pixel QR code
+                byte[] image = QRCodeGenerator.getQRCodeImage(qrText, 250, 250);
+                
+                return ResponseEntity.ok().body(image);
+            }
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
 

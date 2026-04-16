@@ -240,6 +240,33 @@ const FacilitiesPage = () => {
     // NEW: Just use the resources directly from the backend
     const displayResources = Array.isArray(resources) ? resources : [];
 
+
+    // --- NEW: Handle QR Code Generation ---
+    const handleDownloadQR = async (resource) => {
+        try {
+            const response = await fetch(`http://localhost:8080/api/resources/${resource.id}/qrcode`, {
+                method: 'GET',
+                credentials: 'include'
+            });
+            
+            if (!response.ok) throw new Error('Failed to generate QR code');
+            
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            // Names the file beautifully, e.g., "Main_Auditorium_QR.png"
+            link.setAttribute('download', `${resource.name.replace(/\s+/g, '_')}_QR.png`);
+            document.body.appendChild(link);
+            link.click();
+            link.parentNode.removeChild(link);
+        } catch (err) {
+            console.error(err);
+            alert("Failed to download QR Code.");
+        }
+    };
+
+
     return (
         <div style={styles.container}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
@@ -388,6 +415,7 @@ const FacilitiesPage = () => {
                                     </td>
                                     {isAdmin && (
                                     <td style={styles.td}>
+                                        <button onClick={() => handleDownloadQR(r)} style={{...styles.buttonEdit, backgroundColor: '#9b59b6'}}>QR Code</button>
                                         <button onClick={() => handleEditClick(r)} style={styles.buttonEdit}>Edit</button>
                                         <button onClick={() => handleDelete(r.id)} style={styles.buttonDelete}>Delete</button>
                                     </td>
