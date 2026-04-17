@@ -29,12 +29,6 @@ public class ResourceService {
         return resourceRepository.save(resource);
     }
 
-    // 2. READ (Will be used for GET)
-    // UPGRADE: Filter out the ARCHIVED resources
-    public List<Resource> getAllResources() {
-        return resourceRepository.findByStatusNot("ARCHIVED");
-    }
-
     // READ (Will be used for GET by ID)
     // Fetches a specific resource, if it exists
     public Optional<Resource> getResourceById(String id) {

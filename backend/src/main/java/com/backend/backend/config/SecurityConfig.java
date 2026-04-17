@@ -43,8 +43,7 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 // Allow anyone (even logged out phones) to read resource data
                 .requestMatchers(HttpMethod.GET, "/api/resources/**").permitAll()
-                .requestMatchers("/api/auth/**").permitAll() // Allow access to login, register, and user check
-                .requestMatchers(HttpMethod.GET, "/api/resources/**").authenticated()
+                .requestMatchers("/api/auth/**").permitAll()
                 .requestMatchers("/api/resources/**").hasRole("ADMIN")
                 .anyRequest().authenticated()
             )

@@ -80,7 +80,7 @@ const FacilitiesPage = () => {
         
     }, [searchTerm, filterType, filterStatus, currentPage, pageSize]); // Re-run when page changes
 
-    const isAdmin = user?.roles?.includes('ROLE_ADMIN') || user?.email === 'janiduvirunkadev@gmail.com';
+    const isAdmin = user?.roles?.includes('ROLE_ADMIN');
 
     // Reset to page 0 when user types a new search or changes a filter
     const handleSearchChange = (e) => { setSearchTerm(e.target.value); setCurrentPage(0); };
@@ -101,8 +101,8 @@ const FacilitiesPage = () => {
     };
 
     const handleSubmit = async (e) => {
-        e.preventDefault(); 
-        setFieldErrors({}); 
+        e.preventDefault();
+        setFieldErrors({});
 
         try {
             const url = editingId ? `/api/resources/${editingId}` : `/api/resources`;
@@ -112,7 +112,7 @@ const FacilitiesPage = () => {
                 method: method,
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(formData),
-                credentials: 'include' 
+                credentials: 'include',
             });
 
             if (!response.ok) {
@@ -163,12 +163,8 @@ const FacilitiesPage = () => {
     const handleExportCSV = async () => {
         setIsExporting(true);
         try {
-            const exportUrl = new URL('http://localhost:8080/api/resources/export');
-            exportUrl.searchParams.append('searchTerm', searchTerm);
-            exportUrl.searchParams.append('type', filterType);
-            exportUrl.searchParams.append('status', filterStatus);
-
-            const response = await fetch(exportUrl.toString(), {
+            const exportParams = new URLSearchParams({ searchTerm, type: filterType, status: filterStatus });
+            const response = await fetch(`/api/resources/export?${exportParams.toString()}`, {
                 method: 'GET',
                 credentials: 'include',
             });
@@ -200,7 +196,7 @@ const FacilitiesPage = () => {
         uploadData.append('file', file);
 
         try {
-            const response = await fetch('http://localhost:8080/api/resources/import', {
+            const response = await fetch('/api/resources/import', {
                 method: 'POST',
                 body: uploadData,
                 credentials: 'include',
@@ -227,9 +223,9 @@ const FacilitiesPage = () => {
 
     const handleDownloadQR = async (resource) => {
         try {
-            const response = await fetch(`http://localhost:8080/api/resources/${resource.id}/qrcode`, {
+            const response = await fetch(`/api/resources/${resource.id}/qrcode`, {
                 method: 'GET',
-                credentials: 'include'
+                credentials: 'include',
             });
             
             if (!response.ok) throw new Error('Failed to generate QR code');
