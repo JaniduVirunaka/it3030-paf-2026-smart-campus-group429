@@ -1,5 +1,11 @@
+import axios from 'axios';
 // Base configuration for all backend requests
 const BASE_URL = '/api';
+
+const API = axios.create({ baseURL: process.env.REACT_APP_API_URL });
+
+export const getNotifications = (userId) => API.get(`/notifications?userId=${userId}`);
+export const markNotificationRead = (id) => API.patch(`/notifications/${id}/read`);
 
 export const fetchFromAPI = async (endpoint, options = {}) => {
     try {
