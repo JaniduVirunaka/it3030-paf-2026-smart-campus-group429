@@ -1,0 +1,60 @@
+# ─── Frontend ────────────────────────────────────────────────
+frontend/node_modules/
+frontend/dist/
+frontend/dist-ssr/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Playwright
+frontend/test-results/
+frontend/playwright-report/
+frontend/blob-report/
+frontend/playwright/.cache/
+frontend/playwright/.auth/
+
+# ─── Backend ─────────────────────────────────────────────────
+target/
+.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+!**/src/main/**/build/
+!**/src/test/**/build/
+HELP.md
+
+# Secrets
+secret.properties
+*.local
+
+# ─── IDEs & Editors ──────────────────────────────────────────
+.idea/
+*.iws
+*.iml
+*.ipr
+.vscode/
+!.vscode/extensions.json
+.springBeans
+.sts4-cache
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings/
+nbproject/private/
+nbbuild/
+nbdist/
+.nb-gradle/
+
+# ─── OS ──────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.suo
+*.sw?
+
+# ─── Docs ────────────────────────────────────────────────────
+*.pdf

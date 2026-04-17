@@ -1,25 +1,37 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import LoginPage from './pages/LoginPage';
+import HomePage from './pages/HomePage';
 import FacilitiesPage from './pages/FacilitiesPage';
 import DashboardPage from './pages/DashboardPage';
 import ResourceMobileView from './pages/ResourceMobileView';
-import ThemeToggle from './components/ThemeToggle'; 
+import Navbar from './components/Navbar';
+import ProtectedRoute from './components/ProtectedRoute';
+
+// Pages that show Navbar + ThemeToggle
+const Layout = () => (
+  <>
+    <Navbar />
+    <Outlet />
+  </>
+);
 
 function App() {
   return (
     <Router>
-      {/* NEW: The ThemeToggle sits outside the <Routes> block. 
-        This makes it a global floating button that appears on every single page! 
-      */}
-      <ThemeToggle />
-
       <Routes>
-        <Route path="/" element={<LoginPage />} />
-        <Route path="/dashboard" element={<DashboardPage />} /> 
-        <Route path="/facilities" element={<FacilitiesPage />} />
+        {/* Layout routes — Navbar + ThemeToggle visible */}
+        <Route element={<Layout />}>
+          <Route path="/" element={<HomePage />} />
+          <Route element={<ProtectedRoute />}>
+            <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="/facilities" element={<FacilitiesPage />} />
+          </Route>
+        </Route>
+
+        {/* Standalone routes — no Navbar */}
+        <Route path="/login" element={<LoginPage />} />
         <Route path="/resource/view/:id" element={<ResourceMobileView />} />
-        
-        {/* Catch-all route should always be the absolute last route */}
+
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </Router>

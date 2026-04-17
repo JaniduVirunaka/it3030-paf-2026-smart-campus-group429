@@ -72,9 +72,6 @@ const ResourceMobileView = () => {
                     </span>
                 </div>
 
-                <button className="w-full py-4 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white rounded-xl font-bold text-lg shadow-sm transition-colors">
-                    Report an Issue
-                </button>
             </div>
         </div>
     );

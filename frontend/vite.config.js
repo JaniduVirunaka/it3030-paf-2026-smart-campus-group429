@@ -8,11 +8,18 @@ export default defineConfig({
     allowedHosts: [
       '.ngrok-free.dev',
       '.ngrok-free.app'
-      //'ngrok config add-authtoken 3CS50xbV6oKoZFn7fZCiB6PKpRv_6Yt3qPSe78YfHB4swVnXA' 
     ],
 
     proxy: {
       '/api': {
+        target: 'http://localhost:8080',
+        changeOrigin: true
+      },
+      '/oauth2': {
+        target: 'http://localhost:8080',
+        changeOrigin: true
+      },
+      '/logout': {
         target: 'http://localhost:8080',
         changeOrigin: true
       }

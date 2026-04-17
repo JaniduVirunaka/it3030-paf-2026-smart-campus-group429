@@ -1,38 +1,9 @@
-import { useState, useEffect } from 'react';
-import { fetchFromAPI } from '../services/api';
+import { useOutletContext, useNavigate } from 'react-router-dom';
 
 const DashboardPage = () => {
-    const [user, setUser] = useState(null);
-    const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-        const checkAuth = async () => {
-            try {
-                const userData = await fetchFromAPI('/auth/user');
-                if (userData && userData.authenticated) {
-                    setUser(userData);
-                } else {
-                    window.location.href = '/'; 
-                }
-            } catch (err) {
-                window.location.href = '/';
-            } finally {
-                setLoading(false);
-            }
-        };
-        checkAuth();
-    }, []);
-
+    const { user } = useOutletContext();
+    const navigate = useNavigate();
     const isAdmin = user?.roles?.includes('ROLE_ADMIN');
-
-    if (loading) {
-        return (
-            <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex flex-col items-center justify-center transition-colors duration-300">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
-                <h2 className="text-xl font-bold text-slate-800 dark:text-white">Loading Dashboard...</h2>
-            </div>
-        );
-    }
 
     return (
         <div className="min-h-screen bg-slate-50 dark:bg-slate-900 py-10 px-4 sm:px-6 lg:px-8 transition-colors duration-300 font-sans">
@@ -55,8 +26,8 @@ const DashboardPage = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     
                     {/* Module A */}
-                    <div 
-                        onClick={() => window.location.href = '/facilities'} 
+                    <div
+                        onClick={() => navigate('/facilities')}
                         className="bg-white dark:bg-slate-800 p-8 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 text-center hover:-translate-y-1 hover:shadow-md transition-all cursor-pointer flex flex-col items-center"
                     >
                         <div className="text-5xl mb-4">🏢</div>
