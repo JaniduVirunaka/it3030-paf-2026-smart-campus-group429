@@ -105,7 +105,7 @@ const FacilitiesPage = () => {
         setFieldErrors({}); 
 
         try {
-            const url = editingId ? `http://localhost:8080/api/resources/${editingId}` : 'http://localhost:8080/api/resources';
+            const url = editingId ? `/api/resources/${editingId}` : `/api/resources`;
             const method = editingId ? 'PUT' : 'POST';
 
             const response = await fetch(url, {
