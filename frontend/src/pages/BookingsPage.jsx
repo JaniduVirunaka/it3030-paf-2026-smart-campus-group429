@@ -54,8 +54,20 @@ const BookingCard = ({ booking, onCancel, isAdmin, onApprove, onReject }) => {
                     <p className="text-slate-400 dark:text-slate-500 text-xs uppercase tracking-wide font-medium">Attendees</p>
                     <p className="text-slate-800 dark:text-slate-200 font-medium">{booking.expectedAttendees}</p>
                 </div>
+                <div>
+                    <p className="text-slate-400 dark:text-slate-500 text-xs uppercase tracking-wide font-medium">Reg No</p>
+                    <p className="text-slate-800 dark:text-slate-200 font-medium">{booking.studentRegNumber}</p>
+                </div>
+                <div>
+                    <p className="text-slate-400 dark:text-slate-500 text-xs uppercase tracking-wide font-medium">Phone</p>
+                    <p className="text-slate-800 dark:text-slate-200 font-medium">{booking.studentPhone}</p>
+                </div>
+                <div className="col-span-2">
+                    <p className="text-slate-400 dark:text-slate-500 text-xs uppercase tracking-wide font-medium">Email</p>
+                    <p className="text-slate-800 dark:text-slate-200 font-medium truncate" title={booking.studentEmail}>{booking.studentEmail}</p>
+                </div>
                 {booking.rejectionReason && (
-                    <div className="col-span-2">
+                    <div className="col-span-2 pt-2 border-t border-slate-100 dark:border-slate-700 mt-1">
                         <p className="text-slate-400 dark:text-slate-500 text-xs uppercase tracking-wide font-medium">Rejection Reason</p>
                         <p className="text-red-600 dark:text-red-400 text-sm">{booking.rejectionReason}</p>
                     </div>
