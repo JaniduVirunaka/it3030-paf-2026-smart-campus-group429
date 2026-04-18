@@ -76,8 +76,8 @@ public class ResourceControllerTest {
                 .param("type", "ALL")
                 .param("status", "ALL"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].name").value("Main Hall"))
-                .andExpect(jsonPath("$[0].type").value("LECTURE_HALL"));
+                .andExpect(jsonPath("$.content[0].name").value("Main Hall"))
+                .andExpect(jsonPath("$.content[0].type").value("LECTURE_HALL"));
     }
 
     @Test

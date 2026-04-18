@@ -4,7 +4,7 @@ test.describe('Smart Campus Hub - Core UI Tests', () => {
   
   test('Login page renders correctly', async ({ page }) => {
     // Navigate to your local Vite server
-    await page.goto('http://localhost:5173/');
+    await page.goto('http://localhost:5173/login');
 
     // Verify the main Gatekeeper elements exist
     await expect(page.locator('h2')).toContainText('Smart Campus Hub');

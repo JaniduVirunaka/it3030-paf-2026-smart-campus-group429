@@ -33,6 +33,9 @@ class BookingServiceTest {
     @Mock
     private MongoOperations mongoTemplate;
 
+    @Mock
+    private NotificationService notificationService;
+
     @InjectMocks
     private BookingService bookingService;
 
