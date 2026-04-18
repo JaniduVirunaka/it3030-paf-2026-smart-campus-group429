@@ -17,6 +17,8 @@ import java.util.Optional;
 @Service
 public class BookingService {
 
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(BookingService.class);
+
     @Autowired
     private BookingRepository bookingRepository;
 
@@ -24,6 +26,10 @@ public class BookingService {
     private MongoOperations mongoTemplate;
 
     public Booking createBooking(Booking booking) throws Exception {
+        if (booking.getEndTime() != null && booking.getStartTime() != null &&
+                !booking.getEndTime().isAfter(booking.getStartTime())) {
+            throw new Exception("End time must be after start time.");
+        }
         if (hasConflict(booking)) {
             throw new Exception("Scheduling conflict: The resource is already booked for the selected time range.");
         }

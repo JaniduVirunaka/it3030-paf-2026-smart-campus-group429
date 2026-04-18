@@ -8,6 +8,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
@@ -17,8 +18,9 @@ import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/bookings")
-@CrossOrigin(origins = "http://localhost:5173")
 public class BookingController {
+
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(BookingController.class);
 
     @Autowired
     private BookingService bookingService;
@@ -30,12 +32,14 @@ public class BookingController {
             Booking createdBooking = bookingService.createBooking(booking);
             return new ResponseEntity<>(createdBooking, HttpStatus.CREATED);
         } catch (Exception e) {
+            log.error("Failed to create booking for resource {}: {}", booking.getResourceId(), e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("success", false, "message", e.getMessage()));
         }
     }
 
     // 2. Get all bookings (with pagination and filters) - Admin view
     @GetMapping
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Page<Booking>> getAllBookings(
             @RequestParam(required = false, defaultValue = "") String resourceId,
             @RequestParam(required = false, defaultValue = "ALL") String status,
@@ -47,12 +51,14 @@ public class BookingController {
             Page<Booking> bookings = bookingService.searchAndFilterBookings(resourceId, status, pageable);
             return ResponseEntity.ok(bookings);
         } catch (Exception e) {
+            log.error("Failed to retrieve bookings: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
 
     // 3. Get bookings for a specific user
     @GetMapping("/user/{userId}")
+    @PreAuthorize("#userId == authentication.name or hasRole('ADMIN')")
     public ResponseEntity<List<Booking>> getUserBookings(@PathVariable String userId) {
         List<Booking> bookings = bookingService.getUserBookings(userId);
         return ResponseEntity.ok(bookings);
@@ -68,6 +74,7 @@ public class BookingController {
 
     // 5. Update booking status (Approve, Reject, Cancel)
     @PutMapping("/{id}/status")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> updateBookingStatus(
             @PathVariable String id,
             @RequestBody Map<String, String> payload
@@ -83,6 +90,7 @@ public class BookingController {
             Booking updatedBooking = bookingService.updateBookingStatus(id, status, rejectionReason);
             return ResponseEntity.ok(updatedBooking);
         } catch (Exception e) {
+            log.error("Failed to update status for booking {}: {}", id, e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("success", false, "message", e.getMessage()));
         }
     }

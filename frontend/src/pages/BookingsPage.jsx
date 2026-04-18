@@ -2,6 +2,13 @@ import { useState, useEffect, useCallback } from 'react';
 import { fetchFromAPI } from '../services/api';
 import { createBooking, getAllBookings, getUserBookings, updateBookingStatus } from '../services/bookingApi';
 
+const BOOKING_STATUS = {
+    PENDING: 'PENDING',
+    APPROVED: 'APPROVED',
+    REJECTED: 'REJECTED',
+    CANCELLED: 'CANCELLED',
+};
+
 /* ─── Status badge colours ─── */
 const STATUS_STYLES = {
     PENDING:   'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300',
@@ -76,25 +83,28 @@ const BookingCard = ({ booking, onCancel, isAdmin, onApprove, onReject }) => {
 
             {/* Action buttons */}
             <div className="px-4 pb-4 flex flex-wrap gap-2">
-                {isAdmin && booking.status === 'PENDING' && (
+                {isAdmin && booking.status === BOOKING_STATUS.PENDING && (
                     <>
                         <button
                             onClick={() => onApprove(booking.id)}
+                            aria-label={`Approve booking for ${booking.resourceName ?? booking.resourceId}`}
                             className="flex-1 py-1.5 text-sm font-semibold text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors"
                         >
                             ✓ Approve
                         </button>
                         <button
                             onClick={() => setShowRejectForm(v => !v)}
+                            aria-label={`Reject booking for ${booking.resourceName ?? booking.resourceId}`}
                             className="flex-1 py-1.5 text-sm font-semibold text-white bg-red-500 hover:bg-red-600 rounded-lg transition-colors"
                         >
                             ✕ Reject
                         </button>
                     </>
                 )}
-                {!isAdmin && (booking.status === 'APPROVED' || booking.status === 'PENDING') && (
+                {!isAdmin && (booking.status === BOOKING_STATUS.APPROVED || booking.status === BOOKING_STATUS.PENDING) && (
                     <button
                         onClick={() => onCancel(booking.id)}
+                        aria-label={`Cancel booking for ${booking.resourceName ?? booking.resourceId}`}
                         className="flex-1 py-1.5 text-sm font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-lg transition-colors"
                     >
                         Cancel Booking
@@ -167,13 +177,8 @@ const NewBookingModal = ({ resources, currentUser, onClose, onCreated }) => {
             await createBooking(payload);
             onCreated();
         } catch (err) {
-            // Try to parse backend conflict message
-            try {
-                const body = await err?.response?.json?.();
-                setError(body?.message ?? 'Failed to create booking. There may be a scheduling conflict.');
-            } catch {
-                setError('Failed to create booking. There may be a scheduling conflict.');
-            }
+            const message = err?.data?.message ?? err?.message ?? 'Could not create booking.';
+            setError(message);
         } finally {
             setSubmitting(false);
         }
@@ -181,11 +186,11 @@ const NewBookingModal = ({ resources, currentUser, onClose, onCreated }) => {
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg border border-slate-200 dark:border-slate-700">
+            <div role="dialog" aria-modal="true" aria-labelledby="booking-modal-title" className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg border border-slate-200 dark:border-slate-700">
                 {/* Modal header */}
                 <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-700">
-                    <h2 className="text-lg font-bold text-slate-900 dark:text-white">📅 New Booking Request</h2>
-                    <button onClick={onClose} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xl font-bold leading-none">×</button>
+                    <h2 id="booking-modal-title" className="text-lg font-bold text-slate-900 dark:text-white">📅 New Booking Request</h2>
+                    <button onClick={onClose} aria-label="Close booking modal" className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xl font-bold leading-none">×</button>
                 </div>
 
                 <form onSubmit={handleSubmit} className="p-6 space-y-4">
@@ -294,6 +299,8 @@ export default function BookingsPage() {
 
     const isAdmin = user?.roles?.includes('ROLE_ADMIN');
 
+    const showToast = (message, type = 'success') => setToast({ type, message });
+
     /* Auto-dismiss toast */
     useEffect(() => {
         if (!toast) return;
@@ -354,28 +361,28 @@ export default function BookingsPage() {
     /* Handlers */
     const handleApprove = async (id) => {
         try {
-            await updateBookingStatus(id, 'APPROVED');
+            await updateBookingStatus(id, BOOKING_STATUS.APPROVED);
             setToast({ type: 'success', message: 'Booking approved.' });
             loadBookings();
-        } catch {
-            setToast({ type: 'error', message: 'Failed to approve booking.' });
+        } catch (err) {
+            showToast(err?.message ?? 'Action failed. Please try again.', 'error');
         }
     };
 
     const handleReject = async (id, reason) => {
         try {
-            await updateBookingStatus(id, 'REJECTED', reason);
-            setToast({ type: 'success', message: 'Booking rejected.' });
+            await updateBookingStatus(id, BOOKING_STATUS.REJECTED, reason);
+            setToast({ type: 'info', message: 'Booking rejected.' });
             loadBookings();
-        } catch {
-            setToast({ type: 'error', message: 'Failed to reject booking.' });
+        } catch (err) {
+            showToast(err?.message ?? 'Action failed. Please try again.', 'error');
         }
     };
 
     const handleCancel = async (id) => {
         if (!window.confirm('Are you sure you want to cancel this booking?')) return;
         try {
-            await updateBookingStatus(id, 'CANCELLED');
+            await updateBookingStatus(id, BOOKING_STATUS.CANCELLED);
             setToast({ type: 'success', message: 'Booking cancelled.' });
             loadBookings();
         } catch {
@@ -383,7 +390,7 @@ export default function BookingsPage() {
         }
     };
 
-    const pendingCount = bookings.filter(b => b.status === 'PENDING').length;
+    const pendingCount = bookings.filter(b => b.status === BOOKING_STATUS.PENDING).length;
 
     return (
         <div className="min-h-screen bg-slate-50 dark:bg-slate-950 transition-colors duration-300">
@@ -433,18 +440,19 @@ export default function BookingsPage() {
                 {/* Stats strip (admin) */}
                 {isAdmin && (
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
-                        {['ALL', 'PENDING', 'APPROVED', 'REJECTED'].map(s => {
+                        {['ALL', BOOKING_STATUS.PENDING, BOOKING_STATUS.APPROVED, BOOKING_STATUS.REJECTED].map(s => {
                             const count = s === 'ALL' ? bookings.length : bookings.filter(b => b.status === s).length;
                             return (
                                 <button key={s} onClick={() => setFilterStatus(s)}
+                                    aria-pressed={filterStatus === s}
                                     className={`p-4 rounded-xl border text-left transition-all ${filterStatus === s
                                         ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 shadow-md'
                                         : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-blue-300'}`}>
                                     <p className="text-2xl font-extrabold text-slate-900 dark:text-white">{count}</p>
                                     <p className={`text-xs font-semibold uppercase tracking-wide mt-0.5
-                                        ${s === 'PENDING' ? 'text-yellow-600 dark:text-yellow-400'
-                                        : s === 'APPROVED' ? 'text-green-600 dark:text-green-400'
-                                        : s === 'REJECTED' ? 'text-red-600 dark:text-red-400'
+                                        ${s === BOOKING_STATUS.PENDING ? 'text-yellow-600 dark:text-yellow-400'
+                                        : s === BOOKING_STATUS.APPROVED ? 'text-green-600 dark:text-green-400'
+                                        : s === BOOKING_STATUS.REJECTED ? 'text-red-600 dark:text-red-400'
                                         : 'text-slate-500 dark:text-slate-400'}`}>
                                         {s === 'ALL' ? 'Total' : s}
                                     </p>
@@ -457,8 +465,9 @@ export default function BookingsPage() {
                 {/* Filter bar (user view) */}
                 {!isAdmin && (
                     <div className="flex flex-wrap gap-2 mb-6">
-                        {['ALL', 'PENDING', 'APPROVED', 'REJECTED', 'CANCELLED'].map(s => (
+                        {['ALL', BOOKING_STATUS.PENDING, BOOKING_STATUS.APPROVED, BOOKING_STATUS.REJECTED, BOOKING_STATUS.CANCELLED].map(s => (
                             <button key={s} onClick={() => setFilterStatus(s)}
+                                aria-pressed={filterStatus === s}
                                 className={`px-4 py-1.5 rounded-full text-sm font-semibold border transition-all
                                     ${filterStatus === s
                                         ? 'bg-blue-600 text-white border-blue-600 shadow'
@@ -470,14 +479,14 @@ export default function BookingsPage() {
                 )}
 
                 {/* Admin pending alert */}
-                {isAdmin && pendingCount > 0 && filterStatus !== 'PENDING' && (
+                {isAdmin && pendingCount > 0 && filterStatus !== BOOKING_STATUS.PENDING && (
                     <div className="mb-6 p-4 rounded-xl bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 flex items-center gap-3">
                         <span className="text-yellow-500 text-xl">⚠️</span>
                         <div>
                             <p className="text-sm font-semibold text-yellow-800 dark:text-yellow-300">
                                 {pendingCount} booking{pendingCount > 1 ? 's' : ''} awaiting your review.
                             </p>
-                            <button onClick={() => setFilterStatus('PENDING')} className="text-xs text-yellow-700 dark:text-yellow-400 underline mt-0.5">
+                            <button onClick={() => setFilterStatus(BOOKING_STATUS.PENDING)} className="text-xs text-yellow-700 dark:text-yellow-400 underline mt-0.5">
                                 Show pending →
                             </button>
                         </div>
