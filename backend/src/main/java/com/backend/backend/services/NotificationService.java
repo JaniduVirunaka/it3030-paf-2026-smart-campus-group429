@@ -17,6 +17,14 @@ public class NotificationService {
         return repo.findByUserIdOrderByCreatedAtDesc(userId);
     }
 
+    public Notification create(String userId, String type, String message) {
+        Notification n = new Notification();
+        n.setUserId(userId);
+        n.setType(type);
+        n.setMessage(message);
+        return repo.save(n);
+    }
+
     public Notification markRead(String id, String requestingUserId) {
         Notification n = repo.findById(id).orElseThrow(() ->
                 new ResponseStatusException(HttpStatus.NOT_FOUND, "Notification not found: " + id));

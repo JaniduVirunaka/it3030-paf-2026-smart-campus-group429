@@ -28,6 +28,9 @@ public class BookingService {
     @Autowired
     private MongoOperations mongoTemplate;
 
+    @Autowired
+    private NotificationService notificationService;
+
     public Booking createBooking(Booking booking) throws Exception {
         if (booking.getEndTime() != null && booking.getStartTime() != null &&
                 !booking.getEndTime().isAfter(booking.getStartTime())) {
@@ -85,7 +88,26 @@ public class BookingService {
             booking.setRejectionReason(null);
         }
 
-        return bookingRepository.save(booking);
+        Booking saved = bookingRepository.save(booking);
+
+        if ("APPROVED".equals(status)) {
+            notificationService.create(
+                saved.getUserId(),
+                "BOOKING",
+                "Your booking for " + saved.getDate() + " (" + saved.getStartTime() + "–" + saved.getEndTime() + ") has been approved."
+            );
+        } else if ("REJECTED".equals(status)) {
+            String reason = rejectionReason != null && !rejectionReason.isBlank()
+                ? " Reason: " + rejectionReason
+                : "";
+            notificationService.create(
+                saved.getUserId(),
+                "BOOKING",
+                "Your booking for " + saved.getDate() + " (" + saved.getStartTime() + "–" + saved.getEndTime() + ") has been rejected." + reason
+            );
+        }
+
+        return saved;
     }
 
     public List<Booking> getUserBookings(String userId) {
