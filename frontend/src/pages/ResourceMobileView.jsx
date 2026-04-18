@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
-import { fetchFromAPI } from '../services/api'; 
+import { useParams, useNavigate } from 'react-router-dom';
+import { fetchFromAPI } from '../services/api';
 
 const ResourceMobileView = () => {
-    const { id } = useParams(); 
+    const { id } = useParams();
     const [resource, setResource] = useState(null);
     const [loading, setLoading] = useState(true);
+    const navigate = useNavigate();
+    const [isAuthenticated, setIsAuthenticated] = useState(false);
 
     useEffect(() => {
         const loadResource = async () => {
@@ -20,6 +22,24 @@ const ResourceMobileView = () => {
         };
         loadResource();
     }, [id]);
+
+    useEffect(() => {
+        fetchFromAPI('/auth/user')
+            .then(d => setIsAuthenticated(d?.authenticated === true))
+            .catch(() => setIsAuthenticated(false));
+    }, []);
+
+    const handleBook = () => {
+        if (isAuthenticated) {
+            navigate(`/bookings?resourceId=${id}`);
+        } else {
+            navigate(`/login?redirect=/bookings&resourceId=${id}`);
+        }
+    };
+
+    const handleTicket = () => {
+        navigate(isAuthenticated ? '/dashboard' : `/login?redirect=/dashboard`);
+    };
 
     if (loading) return (
         <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex flex-col items-center justify-center text-slate-800 dark:text-white">
@@ -71,6 +91,19 @@ const ResourceMobileView = () => {
                         {resource.status === 'ACTIVE' ? '🟢 Ready for Use' : '🔴 Out of Service'}
                     </span>
                 </div>
+
+                {resource.status === 'ACTIVE' && (
+                    <div className="mt-6 space-y-3">
+                        <button onClick={handleBook}
+                            className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition-colors text-base shadow">
+                            📅 Book This Resource
+                        </button>
+                        <button onClick={handleTicket}
+                            className="w-full py-3 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-800 dark:text-white font-bold rounded-xl transition-colors text-base">
+                            🎫 Submit a Ticket
+                        </button>
+                    </div>
+                )}
 
             </div>
         </div>

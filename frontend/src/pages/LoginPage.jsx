@@ -8,6 +8,9 @@ const LoginPage = () => {
     const [error, setError] = useState('');
     const [message, setMessage] = useState('');
     const [loading, setLoading] = useState(false);
+    const [isRegistering, setIsRegistering] = useState(false);
+    const [regNumber, setRegNumber] = useState('');
+    const [phone, setPhone]         = useState('');
     const navigate = useNavigate();
 
     // Apply saved theme on standalone page (no Navbar present)
@@ -33,7 +36,12 @@ const LoginPage = () => {
             const endpoint = action === 'login' ? '/auth/login' : '/auth/register';
             const response = await fetchFromAPI(endpoint, {
                 method: 'POST',
-                body: JSON.stringify({ email, password })
+                body: JSON.stringify({
+                    email,
+                    password,
+                    ...(action === 'register' && regNumber ? { registrationNumber: regNumber } : {}),
+                    ...(action === 'register' && phone ? { phone } : {}),
+                })
             });
 
             if (response && response.success) {
@@ -93,10 +101,22 @@ const LoginPage = () => {
                         required
                     />
 
+                    {isRegistering && (
+                        <div className="space-y-3 pt-1">
+                            <p className="text-xs text-slate-400 dark:text-slate-500 text-left">Optional — helps pre-fill booking forms</p>
+                            <input type="text" placeholder="Registration No. (optional)"
+                                value={regNumber} onChange={e => setRegNumber(e.target.value)}
+                                className="w-full px-4 py-3 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition-colors" />
+                            <input type="tel" placeholder="Phone Number (optional)"
+                                value={phone} onChange={e => setPhone(e.target.value)}
+                                className="w-full px-4 py-3 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition-colors" />
+                        </div>
+                    )}
+
                     <div className="flex gap-3 pt-2">
                         <button
                             type="submit"
-                            onClick={(e) => handleStandardAuth(e, 'login')}
+                            onClick={(e) => { setIsRegistering(false); handleStandardAuth(e, 'login'); }}
                             disabled={loading}
                             className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white font-bold rounded-xl transition-colors disabled:opacity-70"
                         >
@@ -104,7 +124,7 @@ const LoginPage = () => {
                         </button>
                         <button
                             type="button"
-                            onClick={(e) => handleStandardAuth(e, 'register')}
+                            onClick={(e) => { setIsRegistering(true); handleStandardAuth(e, 'register'); }}
                             disabled={loading}
                             className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-bold rounded-xl transition-colors disabled:opacity-70"
                         >

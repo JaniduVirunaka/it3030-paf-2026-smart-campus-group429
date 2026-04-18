@@ -5,6 +5,7 @@ import FacilitiesPage from './pages/FacilitiesPage';
 import DashboardPage from './pages/DashboardPage';
 import ResourceMobileView from './pages/ResourceMobileView';
 import BookingsPage from './pages/BookingsPage';
+import ProfilePage from './pages/ProfilePage';
 import Navbar from './components/Navbar';
 import ProtectedRoute from './components/ProtectedRoute';
 
@@ -27,6 +28,7 @@ function App() {
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/facilities" element={<FacilitiesPage />} />
             <Route path="/bookings" element={<BookingsPage />} />
+            <Route path="/profile" element={<ProfilePage />} />
           </Route>
         </Route>
 

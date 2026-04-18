@@ -11,6 +11,9 @@ public class User {
     private String email;
     private String password;
     private Set<String> roles;
+    private String displayName;
+    private String registrationNumber;
+    private String phone;
 
     // Constructors
     public User() {}
@@ -30,4 +33,10 @@ public class User {
     public void setPassword(String password) { this.password = password; }
     public Set<String> getRoles() { return roles; }
     public void setRoles(Set<String> roles) { this.roles = roles; }
+    public String getDisplayName() { return displayName; }
+    public void setDisplayName(String displayName) { this.displayName = displayName; }
+    public String getRegistrationNumber() { return registrationNumber; }
+    public void setRegistrationNumber(String registrationNumber) { this.registrationNumber = registrationNumber; }
+    public String getPhone() { return phone; }
+    public void setPhone(String phone) { this.phone = phone; }
 }

@@ -124,7 +124,9 @@ public class BookingService {
             .map(b -> Map.of(
                 "startTime", b.getStartTime().toString(),
                 "endTime",   b.getEndTime().toString(),
-                "status",    b.getStatus()
+                "status",    b.getStatus(),
+                "purpose",   b.getPurpose() != null ? b.getPurpose() : "",
+                "bookedBy",  b.getStudentRegNumber() != null ? b.getStudentRegNumber() : ""
             ))
             .collect(Collectors.toList());
     }

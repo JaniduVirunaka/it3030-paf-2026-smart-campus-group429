@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { fetchFromAPI } from '../services/api';
 import { createBooking, getAllBookings, getUserBookings, updateBookingStatus, getBookedSlots } from '../services/bookingApi';
+import { getProfile } from '../services/profileApi';
 
 const TIME_SLOTS = [
   { label: '08:00 – 09:00', start: '08:00', end: '09:00' },
@@ -147,7 +149,7 @@ const BookingCard = ({ booking, onCancel, isAdmin, onApprove, onReject }) => {
 };
 
 /* ─── New Booking Modal ─── */
-const NewBookingModal = ({ resources, currentUser, onClose, onCreated }) => {
+const NewBookingModal = ({ resources, currentUser, preselectedResourceId, onClose, onCreated }) => {
     const [form, setForm] = useState({
         resourceId: '',
         date: '',
@@ -177,6 +179,27 @@ const NewBookingModal = ({ resources, currentUser, onClose, onCreated }) => {
             .catch(() => setBookedSlots([]))
             .finally(() => setSlotsLoading(false));
     }, [form.resourceId, form.date]);
+
+    useEffect(() => {
+        if (!currentUser) return;
+        getProfile()
+            .then(p => setForm(f => ({
+                ...f,
+                studentRegNumber: p.registrationNumber ?? f.studentRegNumber,
+                studentPhone:     p.phone ?? f.studentPhone,
+                studentEmail:     currentUser.email ?? f.studentEmail,
+            })))
+            .catch(() => {
+                setForm(f => ({ ...f, studentEmail: currentUser.email ?? f.studentEmail }));
+            });
+    }, [currentUser]);
+
+    useEffect(() => {
+        if (!preselectedResourceId || resources.length === 0) return;
+        const r = resources.find(res => res.id === preselectedResourceId);
+        if (r) handleResourceSelect(r);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [preselectedResourceId, resources]);
 
     const isSlotTaken = (slot) =>
         bookedSlots.some(b => b.startTime < slot.end && b.endTime > slot.start);
@@ -448,8 +471,13 @@ export default function BookingsPage() {
     const [availCheck, setAvailCheck] = useState({ resourceId: '', date: '' });
     const [availSlots, setAvailSlots] = useState(null);
     const [availLoading, setAvailLoading] = useState(false);
+    const [availSearch, setAvailSearch]                 = useState('');
+    const [availResourceLabel, setAvailResourceLabel]   = useState('');
+    const [showAvailDropdown, setShowAvailDropdown]     = useState(false);
+    const [preselectedResourceId, setPreselectedResourceId] = useState('');
 
     const isAdmin = user?.roles?.includes('ROLE_ADMIN');
+    const [searchParams] = useSearchParams();
 
     const showToast = (message, type = 'success') => setToast({ type, message });
 
@@ -509,6 +537,14 @@ export default function BookingsPage() {
     }, [user, isAdmin]);
 
     useEffect(() => { loadBookings(); }, [loadBookings]);
+
+    useEffect(() => {
+        const rid = searchParams.get('resourceId');
+        if (rid && resources.length > 0) {
+            setPreselectedResourceId(rid);
+            setShowModal(true);
+        }
+    }, [searchParams, resources]);
 
     /* Handlers */
     const handleApprove = async (id) => {
@@ -578,8 +614,9 @@ export default function BookingsPage() {
                 <NewBookingModal
                     resources={resources}
                     currentUser={user}
-                    onClose={() => setShowModal(false)}
-                    onCreated={() => { setShowModal(false); setToast({ type: 'success', message: 'Booking request submitted!' }); loadBookings(); }}
+                    preselectedResourceId={preselectedResourceId}
+                    onClose={() => { setShowModal(false); setPreselectedResourceId(''); }}
+                    onCreated={() => { setShowModal(false); setPreselectedResourceId(''); setToast({ type: 'success', message: 'Booking request submitted!' }); loadBookings(); }}
                 />
             )}
 
@@ -666,16 +703,49 @@ export default function BookingsPage() {
                     <div className="bg-white dark:bg-slate-800 rounded-xl shadow p-4 mb-6 border border-slate-200 dark:border-slate-700">
                         <h3 className="font-semibold text-gray-700 dark:text-slate-300 mb-3">Check Resource Availability</h3>
                         <div className="flex flex-wrap gap-3 items-end">
-                            <div>
+                            <div className="relative">
                                 <label className="block text-xs font-medium text-gray-600 dark:text-slate-400 mb-1">Resource</label>
-                                <select
-                                    value={availCheck.resourceId}
-                                    onChange={e => { setAvailCheck(a => ({ ...a, resourceId: e.target.value })); setAvailSlots(null); }}
-                                    className="border border-gray-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200"
-                                >
-                                    <option value="">Select resource…</option>
-                                    {resources.map(r => <option key={r.id} value={r.id}>{r.name} ({r.type})</option>)}
-                                </select>
+                                <div className="relative">
+                                    <input
+                                        type="text"
+                                        placeholder="Search resource…"
+                                        value={availResourceLabel || availSearch}
+                                        onChange={e => {
+                                            setAvailSearch(e.target.value);
+                                            setAvailResourceLabel('');
+                                            setAvailCheck(a => ({ ...a, resourceId: '' }));
+                                            setAvailSlots(null);
+                                            setShowAvailDropdown(true);
+                                        }}
+                                        onFocus={() => !availResourceLabel && setShowAvailDropdown(true)}
+                                        onBlur={() => setTimeout(() => setShowAvailDropdown(false), 150)}
+                                        className="border border-gray-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 w-56 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    />
+                                    {availResourceLabel && (
+                                        <button type="button"
+                                            onMouseDown={() => { setAvailResourceLabel(''); setAvailSearch(''); setAvailCheck(a => ({ ...a, resourceId: '' })); setAvailSlots(null); }}
+                                            className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-lg leading-none">×</button>
+                                    )}
+                                </div>
+                                {showAvailDropdown && (
+                                    <div className="absolute z-10 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg mt-1 max-h-40 overflow-y-auto shadow-lg w-56">
+                                        {resources
+                                            .filter(r => `${r.name} ${r.type} ${r.location}`.toLowerCase().includes(availSearch.toLowerCase()))
+                                            .map(r => (
+                                                <button key={r.id} type="button"
+                                                    onMouseDown={() => {
+                                                        setAvailCheck(a => ({ ...a, resourceId: r.id }));
+                                                        setAvailResourceLabel(`${r.name} (${r.type})`);
+                                                        setAvailSearch('');
+                                                        setAvailSlots(null);
+                                                        setShowAvailDropdown(false);
+                                                    }}
+                                                    className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-200 transition-colors">
+                                                    {r.name} ({r.type}) – {r.location}
+                                                </button>
+                                            ))}
+                                    </div>
+                                )}
                             </div>
                             <div>
                                 <label className="block text-xs font-medium text-gray-600 dark:text-slate-400 mb-1">Date</label>
@@ -697,19 +767,25 @@ export default function BookingsPage() {
                         </div>
                         {availSlots !== null && (
                             <div className="mt-4 grid grid-cols-3 sm:grid-cols-5 gap-2">
-                                {TIME_SLOTS.map(slot => (
-                                    <div
-                                        key={slot.start}
-                                        className={`rounded-lg p-2 text-center text-xs font-medium ${
-                                            isSlotAvailable(slot)
-                                                ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'
-                                                : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
-                                        }`}
-                                    >
-                                        <div>{slot.label}</div>
-                                        <div className="mt-0.5">{isSlotAvailable(slot) ? 'Free' : 'Booked'}</div>
-                                    </div>
-                                ))}
+                                {TIME_SLOTS.map(slot => {
+                                    const avail = isSlotAvailable(slot);
+                                    const booked = !avail
+                                        ? (availSlots ?? []).find(b => b.startTime < slot.end && b.endTime > slot.start)
+                                        : null;
+                                    return (
+                                        <div key={slot.start} title={booked?.purpose ?? ''}
+                                            className={`rounded-lg p-2 text-center text-xs font-medium ${
+                                                avail
+                                                    ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'
+                                                    : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
+                                            }`}>
+                                            <div>{slot.label}</div>
+                                            <div className="mt-0.5">{avail ? 'Free' : 'Booked'}</div>
+                                            {booked?.bookedBy && <div className="mt-0.5 opacity-70 truncate">{booked.bookedBy}</div>}
+                                            {booked?.purpose && <div className="opacity-60 truncate italic">{booked.purpose.slice(0, 18)}{booked.purpose.length > 18 ? '…' : ''}</div>}
+                                        </div>
+                                    );
+                                })}
                             </div>
                         )}
                     </div>
