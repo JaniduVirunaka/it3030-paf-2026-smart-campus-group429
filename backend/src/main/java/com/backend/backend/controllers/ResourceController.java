@@ -30,7 +30,7 @@ import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/resources")
-@CrossOrigin(origins = "http://localhost:5173")
+@CrossOrigin(origins = {"http://localhost:5173", "https://ensure-alkalize-petal.ngrok-free.dev"})
 public class ResourceController {
 
     @Value("${app.qr.base-url}")

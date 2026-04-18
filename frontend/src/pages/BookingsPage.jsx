@@ -151,8 +151,6 @@ const NewBookingModal = ({ resources, currentUser, onClose, onCreated }) => {
     const [form, setForm] = useState({
         resourceId: '',
         date: '',
-        startTime: '',
-        endTime: '',
         purpose: '',
         expectedAttendees: 1,
         studentRegNumber: '',
@@ -162,8 +160,11 @@ const NewBookingModal = ({ resources, currentUser, onClose, onCreated }) => {
     const [error, setError] = useState('');
     const [submitting, setSubmitting] = useState(false);
     const [resourceSearch, setResourceSearch] = useState('');
+    const [selectedResourceLabel, setSelectedResourceLabel] = useState('');
+    const [showResourceDropdown, setShowResourceDropdown] = useState(false);
     const [bookedSlots, setBookedSlots] = useState([]);
     const [slotsLoading, setSlotsLoading] = useState(false);
+    const [selectedSlots, setSelectedSlots] = useState([]);
 
     useEffect(() => {
         if (!form.resourceId || !form.date) {
@@ -184,36 +185,75 @@ const NewBookingModal = ({ resources, currentUser, onClose, onCreated }) => {
         `${r.name} ${r.type} ${r.location}`.toLowerCase().includes(resourceSearch.toLowerCase())
     );
 
+    const handleResourceSelect = (r) => {
+        setForm(f => ({ ...f, resourceId: r.id }));
+        setSelectedResourceLabel(`${r.name} (${r.type}) – ${r.location}`);
+        setResourceSearch('');
+        setShowResourceDropdown(false);
+        setSelectedSlots([]);
+        setBookedSlots([]);
+    };
+
+    const clearResource = () => {
+        setSelectedResourceLabel('');
+        setResourceSearch('');
+        setForm(f => ({ ...f, resourceId: '' }));
+        setSelectedSlots([]);
+        setBookedSlots([]);
+    };
+
+    const toggleSlot = (slot) => {
+        if (isSlotTaken(slot)) return;
+        setSelectedSlots(prev =>
+            prev.find(s => s.start === slot.start)
+                ? prev.filter(s => s.start !== slot.start)
+                : [...prev, slot].sort((a, b) => a.start.localeCompare(b.start))
+        );
+    };
+
+    const mergeSlots = (slots) => {
+        if (slots.length === 0) return [];
+        const sorted = [...slots].sort((a, b) => a.start.localeCompare(b.start));
+        const merged = [{ start: sorted[0].start, end: sorted[0].end }];
+        for (let i = 1; i < sorted.length; i++) {
+            const last = merged[merged.length - 1];
+            if (sorted[i].start === last.end) {
+                last.end = sorted[i].end;
+            } else {
+                merged.push({ start: sorted[i].start, end: sorted[i].end });
+            }
+        }
+        return merged;
+    };
+
     const handleChange = e => {
         const { name, value } = e.target;
-        if (name === 'timeSlot') {
-            const slot = TIME_SLOTS.find(s => s.start === value);
-            setForm(f => ({ ...f, startTime: slot?.start ?? '', endTime: slot?.end ?? '' }));
-            return;
-        }
         setForm(prev => ({ ...prev, [name]: value }));
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (!form.resourceId) { setError('Please select a resource.'); return; }
-        if (form.startTime >= form.endTime) { setError('End time must be after start time.'); return; }
+        if (selectedSlots.length === 0) { setError('Please select at least one time slot.'); return; }
         if (parseInt(form.expectedAttendees, 10) < 1) { setError('Expected attendees must be at least 1.'); return; }
-        
         const today = new Date().toISOString().split('T')[0];
         if (form.date < today) { setError('Booking date cannot be in the past.'); return; }
-
         if (!/^\d{10}$/.test(form.studentPhone)) { setError('Phone number must be exactly 10 digits.'); return; }
 
         setError('');
         setSubmitting(true);
         try {
-            const payload = {
-                ...form,
-                userId: currentUser?.email ?? currentUser?.name ?? 'unknown',
-                expectedAttendees: parseInt(form.expectedAttendees, 10),
-            };
-            await createBooking(payload);
+            const timeRanges = mergeSlots(selectedSlots);
+            for (const range of timeRanges) {
+                const payload = {
+                    ...form,
+                    startTime: range.start,
+                    endTime: range.end,
+                    userId: currentUser?.email ?? currentUser?.name ?? 'unknown',
+                    expectedAttendees: parseInt(form.expectedAttendees, 10),
+                };
+                await createBooking(payload);
+            }
             onCreated();
         } catch (err) {
             const message = err?.data?.message ?? err?.message ?? 'Could not create booking.';
@@ -223,43 +263,74 @@ const NewBookingModal = ({ resources, currentUser, onClose, onCreated }) => {
         }
     };
 
+    const handleClose = () => {
+        setResourceSearch('');
+        setSelectedResourceLabel('');
+        setShowResourceDropdown(false);
+        setBookedSlots([]);
+        setSelectedSlots([]);
+        onClose();
+    };
+
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-            <div role="dialog" aria-modal="true" aria-labelledby="booking-modal-title" className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg border border-slate-200 dark:border-slate-700">
-                {/* Modal header */}
-                <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-700">
+            <div role="dialog" aria-modal="true" aria-labelledby="booking-modal-title"
+                className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col border border-slate-200 dark:border-slate-700">
+                {/* Modal header — fixed, never scrolls */}
+                <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex-shrink-0">
                     <h2 id="booking-modal-title" className="text-lg font-bold text-slate-900 dark:text-white">📅 New Booking Request</h2>
-                    <button onClick={() => { setResourceSearch(''); setBookedSlots([]); onClose(); }} aria-label="Close booking modal" className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xl font-bold leading-none">×</button>
+                    <button onClick={handleClose} aria-label="Close booking modal" className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xl font-bold leading-none">×</button>
                 </div>
 
-                <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto flex-1">
                     {error && (
                         <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 text-sm text-red-700 dark:text-red-300">
                             ⚠️ {error}
                         </div>
                     )}
 
-                    {/* Resource search */}
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Search Resource</label>
-                        <input
-                            type="text"
-                            placeholder="Filter by name, type or location…"
-                            value={resourceSearch}
-                            onChange={e => setResourceSearch(e.target.value)}
-                            className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-3 py-2 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                    </div>
-                    {/* Resource dropdown */}
-                    <div>
+                    {/* Resource combobox — search + select in one field */}
+                    <div className="relative">
                         <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Resource *</label>
-                        <select name="resourceId" required value={form.resourceId} onChange={handleChange}
-                            className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-3 py-2 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            <option value="">Select a resource…</option>
-                            {filteredResources.map(r => (
-                                <option key={r.id} value={r.id}>{r.name} ({r.type}) – {r.location}</option>
-                            ))}
-                        </select>
+                        <div className="relative">
+                            <input
+                                type="text"
+                                placeholder="Search and select a resource…"
+                                value={selectedResourceLabel || resourceSearch}
+                                onChange={e => {
+                                    setResourceSearch(e.target.value);
+                                    setSelectedResourceLabel('');
+                                    setForm(f => ({ ...f, resourceId: '' }));
+                                    setShowResourceDropdown(true);
+                                    setSelectedSlots([]);
+                                }}
+                                onFocus={() => !selectedResourceLabel && setShowResourceDropdown(true)}
+                                onBlur={() => setTimeout(() => setShowResourceDropdown(false), 150)}
+                                className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-3 py-2 pr-8 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                            {selectedResourceLabel && (
+                                <button
+                                    type="button"
+                                    onMouseDown={clearResource}
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-lg leading-none"
+                                    aria-label="Clear resource selection"
+                                >×</button>
+                            )}
+                        </div>
+                        {showResourceDropdown && filteredResources.length > 0 && (
+                            <div className="absolute z-10 w-full bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg mt-1 max-h-40 overflow-y-auto shadow-lg">
+                                {filteredResources.map(r => (
+                                    <button
+                                        key={r.id}
+                                        type="button"
+                                        onMouseDown={() => handleResourceSelect(r)}
+                                        className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-200 transition-colors"
+                                    >
+                                        {r.name} ({r.type}) – {r.location}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
                     </div>
 
                     {/* Date */}
@@ -270,29 +341,46 @@ const NewBookingModal = ({ resources, currentUser, onClose, onCreated }) => {
                             className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-3 py-2 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500" />
                     </div>
 
-                    {/* Time slot */}
+                    {/* Time slots — multi-select toggle grid */}
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Time Slot *</label>
-                        <select
-                            name="timeSlot"
-                            required
-                            value={form.startTime}
-                            onChange={handleChange}
-                            disabled={!form.resourceId || !form.date}
-                            className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-3 py-2 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            <option value="">
-                                {!form.resourceId || !form.date ? 'Select resource & date first' : slotsLoading ? 'Loading…' : 'Select a time slot…'}
-                            </option>
-                            {TIME_SLOTS.map(slot => {
-                                const taken = isSlotTaken(slot);
-                                return (
-                                    <option key={slot.start} value={slot.start} disabled={taken}>
-                                        {slot.label}{taken ? ' — Booked' : ''}
-                                    </option>
-                                );
-                            })}
-                        </select>
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                            Time Slots *
+                            {selectedSlots.length > 0 && (
+                                <span className="ml-2 text-blue-600 dark:text-blue-400 font-normal">
+                                    {selectedSlots.length} selected
+                                </span>
+                            )}
+                        </label>
+                        {!form.resourceId || !form.date ? (
+                            <p className="text-xs text-slate-400 dark:text-slate-500 py-2">Select a resource and date to see available slots.</p>
+                        ) : slotsLoading ? (
+                            <p className="text-xs text-slate-400 py-2">Loading slots…</p>
+                        ) : (
+                            <div className="grid grid-cols-3 gap-2">
+                                {TIME_SLOTS.map(slot => {
+                                    const taken = isSlotTaken(slot);
+                                    const selected = selectedSlots.some(s => s.start === slot.start);
+                                    return (
+                                        <button
+                                            key={slot.start}
+                                            type="button"
+                                            disabled={taken}
+                                            onClick={() => toggleSlot(slot)}
+                                            className={`rounded-lg py-2 px-1 text-xs font-medium text-center transition-all border ${
+                                                taken
+                                                    ? 'bg-red-50 dark:bg-red-900/20 text-red-400 dark:text-red-500 border-red-200 dark:border-red-800 cursor-not-allowed opacity-70'
+                                                    : selected
+                                                        ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                                                        : 'bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-600 hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-slate-600'
+                                            }`}
+                                        >
+                                            <div>{slot.label}</div>
+                                            {taken && <div className="text-xs mt-0.5 text-red-400">Booked</div>}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        )}
                     </div>
 
                     {/* Purpose */}
@@ -303,7 +391,7 @@ const NewBookingModal = ({ resources, currentUser, onClose, onCreated }) => {
                             className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-3 py-2 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500" />
                     </div>
 
-                    {/* Student Info */}
+                    {/* Contact info */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         <div>
                             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Registration No. *</label>
@@ -318,7 +406,7 @@ const NewBookingModal = ({ resources, currentUser, onClose, onCreated }) => {
                                 className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-3 py-2 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500" />
                         </div>
                         <div className="md:col-span-2">
-                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Student Email *</label>
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Email *</label>
                             <input type="email" name="studentEmail" required value={form.studentEmail} onChange={handleChange}
                                 placeholder="e.g., it12345678@my.sliit.lk"
                                 className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-3 py-2 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500" />
@@ -337,7 +425,7 @@ const NewBookingModal = ({ resources, currentUser, onClose, onCreated }) => {
                             className="flex-1 py-2.5 font-semibold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-60 rounded-xl transition-colors">
                             {submitting ? 'Submitting…' : 'Submit Booking'}
                         </button>
-                        <button type="button" onClick={() => { setResourceSearch(''); setBookedSlots([]); onClose(); }}
+                        <button type="button" onClick={handleClose}
                             className="flex-1 py-2.5 font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-xl transition-colors">
                             Cancel
                         </button>
