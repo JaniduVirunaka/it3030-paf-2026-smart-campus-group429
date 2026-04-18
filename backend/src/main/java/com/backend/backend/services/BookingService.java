@@ -11,8 +11,11 @@ import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 public class BookingService {
@@ -113,5 +116,16 @@ public class BookingService {
     
     public void deleteBooking(String id) {
         bookingRepository.deleteById(id);
+    }
+
+    public List<Map<String, String>> getBookedSlots(String resourceId, LocalDate date) {
+        return bookingRepository.findByResourceIdAndDate(resourceId, date).stream()
+            .filter(b -> !"CANCELLED".equals(b.getStatus()) && !"REJECTED".equals(b.getStatus()))
+            .map(b -> Map.of(
+                "startTime", b.getStartTime().toString(),
+                "endTime",   b.getEndTime().toString(),
+                "status",    b.getStatus()
+            ))
+            .collect(Collectors.toList());
     }
 }

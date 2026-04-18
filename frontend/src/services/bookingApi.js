@@ -43,3 +43,9 @@ export const updateBookingStatus = (id, status, rejectionReason = '') => {
         body: JSON.stringify({ status, rejectionReason }),
     });
 };
+
+/**
+ * Get booked time slots for a resource on a given date (GET /api/bookings/booked-slots)
+ */
+export const getBookedSlots = (resourceId, date) =>
+    fetchFromAPI(`/bookings/booked-slots?resourceId=${encodeURIComponent(resourceId)}&date=${encodeURIComponent(date)}`);

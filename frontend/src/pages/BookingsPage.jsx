@@ -1,6 +1,18 @@
 import { useState, useEffect, useCallback } from 'react';
 import { fetchFromAPI } from '../services/api';
-import { createBooking, getAllBookings, getUserBookings, updateBookingStatus } from '../services/bookingApi';
+import { createBooking, getAllBookings, getUserBookings, updateBookingStatus, getBookedSlots } from '../services/bookingApi';
+
+const TIME_SLOTS = [
+  { label: '08:00 – 09:00', start: '08:00', end: '09:00' },
+  { label: '09:00 – 10:00', start: '09:00', end: '10:00' },
+  { label: '10:00 – 11:00', start: '10:00', end: '11:00' },
+  { label: '11:00 – 12:00', start: '11:00', end: '12:00' },
+  { label: '12:00 – 13:00', start: '12:00', end: '13:00' },
+  { label: '13:00 – 14:00', start: '13:00', end: '14:00' },
+  { label: '14:00 – 15:00', start: '14:00', end: '15:00' },
+  { label: '15:00 – 16:00', start: '15:00', end: '16:00' },
+  { label: '16:00 – 17:00', start: '16:00', end: '17:00' },
+];
 
 const BOOKING_STATUS = {
     PENDING: 'PENDING',
@@ -62,7 +74,7 @@ const BookingCard = ({ booking, onCancel, isAdmin, onApprove, onReject }) => {
                     <p className="text-slate-800 dark:text-slate-200 font-medium">{booking.expectedAttendees}</p>
                 </div>
                 <div>
-                    <p className="text-slate-400 dark:text-slate-500 text-xs uppercase tracking-wide font-medium">Reg No</p>
+                    <p className="text-slate-400 dark:text-slate-500 text-xs uppercase tracking-wide font-medium">Reg No.</p>
                     <p className="text-slate-800 dark:text-slate-200 font-medium">{booking.studentRegNumber}</p>
                 </div>
                 <div>
@@ -149,9 +161,36 @@ const NewBookingModal = ({ resources, currentUser, onClose, onCreated }) => {
     });
     const [error, setError] = useState('');
     const [submitting, setSubmitting] = useState(false);
+    const [resourceSearch, setResourceSearch] = useState('');
+    const [bookedSlots, setBookedSlots] = useState([]);
+    const [slotsLoading, setSlotsLoading] = useState(false);
+
+    useEffect(() => {
+        if (!form.resourceId || !form.date) {
+            setBookedSlots([]);
+            return;
+        }
+        setSlotsLoading(true);
+        getBookedSlots(form.resourceId, form.date)
+            .then(data => setBookedSlots(Array.isArray(data) ? data : []))
+            .catch(() => setBookedSlots([]))
+            .finally(() => setSlotsLoading(false));
+    }, [form.resourceId, form.date]);
+
+    const isSlotTaken = (slot) =>
+        bookedSlots.some(b => b.startTime < slot.end && b.endTime > slot.start);
+
+    const filteredResources = resources.filter(r =>
+        `${r.name} ${r.type} ${r.location}`.toLowerCase().includes(resourceSearch.toLowerCase())
+    );
 
     const handleChange = e => {
         const { name, value } = e.target;
+        if (name === 'timeSlot') {
+            const slot = TIME_SLOTS.find(s => s.start === value);
+            setForm(f => ({ ...f, startTime: slot?.start ?? '', endTime: slot?.end ?? '' }));
+            return;
+        }
         setForm(prev => ({ ...prev, [name]: value }));
     };
 
@@ -190,7 +229,7 @@ const NewBookingModal = ({ resources, currentUser, onClose, onCreated }) => {
                 {/* Modal header */}
                 <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-700">
                     <h2 id="booking-modal-title" className="text-lg font-bold text-slate-900 dark:text-white">📅 New Booking Request</h2>
-                    <button onClick={onClose} aria-label="Close booking modal" className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xl font-bold leading-none">×</button>
+                    <button onClick={() => { setResourceSearch(''); setBookedSlots([]); onClose(); }} aria-label="Close booking modal" className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xl font-bold leading-none">×</button>
                 </div>
 
                 <form onSubmit={handleSubmit} className="p-6 space-y-4">
@@ -200,13 +239,24 @@ const NewBookingModal = ({ resources, currentUser, onClose, onCreated }) => {
                         </div>
                     )}
 
-                    {/* Resource */}
+                    {/* Resource search */}
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Search Resource</label>
+                        <input
+                            type="text"
+                            placeholder="Filter by name, type or location…"
+                            value={resourceSearch}
+                            onChange={e => setResourceSearch(e.target.value)}
+                            className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-3 py-2 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                    </div>
+                    {/* Resource dropdown */}
                     <div>
                         <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Resource *</label>
                         <select name="resourceId" required value={form.resourceId} onChange={handleChange}
                             className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-3 py-2 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500">
                             <option value="">Select a resource…</option>
-                            {resources.map(r => (
+                            {filteredResources.map(r => (
                                 <option key={r.id} value={r.id}>{r.name} ({r.type}) – {r.location}</option>
                             ))}
                         </select>
@@ -220,18 +270,29 @@ const NewBookingModal = ({ resources, currentUser, onClose, onCreated }) => {
                             className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-3 py-2 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500" />
                     </div>
 
-                    {/* Time range */}
-                    <div className="grid grid-cols-2 gap-3">
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Start Time *</label>
-                            <input type="time" name="startTime" required value={form.startTime} onChange={handleChange}
-                                className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-3 py-2 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">End Time *</label>
-                            <input type="time" name="endTime" required value={form.endTime} onChange={handleChange}
-                                className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-3 py-2 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                        </div>
+                    {/* Time slot */}
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Time Slot *</label>
+                        <select
+                            name="timeSlot"
+                            required
+                            value={form.startTime}
+                            onChange={handleChange}
+                            disabled={!form.resourceId || !form.date}
+                            className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-3 py-2 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            <option value="">
+                                {!form.resourceId || !form.date ? 'Select resource & date first' : slotsLoading ? 'Loading…' : 'Select a time slot…'}
+                            </option>
+                            {TIME_SLOTS.map(slot => {
+                                const taken = isSlotTaken(slot);
+                                return (
+                                    <option key={slot.start} value={slot.start} disabled={taken}>
+                                        {slot.label}{taken ? ' — Booked' : ''}
+                                    </option>
+                                );
+                            })}
+                        </select>
                     </div>
 
                     {/* Purpose */}
@@ -245,9 +306,9 @@ const NewBookingModal = ({ resources, currentUser, onClose, onCreated }) => {
                     {/* Student Info */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         <div>
-                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Student Reg No *</label>
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Registration No. *</label>
                             <input type="text" name="studentRegNumber" required value={form.studentRegNumber} onChange={handleChange}
-                                placeholder="e.g., IT12345678"
+                                placeholder="e.g., IT12345678 or EMP1234"
                                 className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-3 py-2 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500" />
                         </div>
                         <div>
@@ -276,7 +337,7 @@ const NewBookingModal = ({ resources, currentUser, onClose, onCreated }) => {
                             className="flex-1 py-2.5 font-semibold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-60 rounded-xl transition-colors">
                             {submitting ? 'Submitting…' : 'Submit Booking'}
                         </button>
-                        <button type="button" onClick={onClose}
+                        <button type="button" onClick={() => { setResourceSearch(''); setBookedSlots([]); onClose(); }}
                             className="flex-1 py-2.5 font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-xl transition-colors">
                             Cancel
                         </button>
@@ -296,6 +357,9 @@ export default function BookingsPage() {
     const [toast, setToast]         = useState(null);
     const [showModal, setShowModal] = useState(false);
     const [filterStatus, setFilterStatus] = useState('ALL');
+    const [availCheck, setAvailCheck] = useState({ resourceId: '', date: '' });
+    const [availSlots, setAvailSlots] = useState(null);
+    const [availLoading, setAvailLoading] = useState(false);
 
     const isAdmin = user?.roles?.includes('ROLE_ADMIN');
 
@@ -389,6 +453,22 @@ export default function BookingsPage() {
             setToast({ type: 'error', message: 'Failed to cancel booking.' });
         }
     };
+
+    const checkAvailability = async () => {
+        if (!availCheck.resourceId || !availCheck.date) return;
+        setAvailLoading(true);
+        try {
+            const data = await getBookedSlots(availCheck.resourceId, availCheck.date);
+            setAvailSlots(Array.isArray(data) ? data : []);
+        } catch {
+            setAvailSlots([]);
+        } finally {
+            setAvailLoading(false);
+        }
+    };
+
+    const isSlotAvailable = (slot) =>
+        !(availSlots ?? []).some(b => b.startTime < slot.end && b.endTime > slot.start);
 
     const pendingCount = bookings.filter(b => b.status === BOOKING_STATUS.PENDING).length;
 
@@ -490,6 +570,60 @@ export default function BookingsPage() {
                                 Show pending →
                             </button>
                         </div>
+                    </div>
+                )}
+
+                {/* Admin availability checker */}
+                {isAdmin && (
+                    <div className="bg-white dark:bg-slate-800 rounded-xl shadow p-4 mb-6 border border-slate-200 dark:border-slate-700">
+                        <h3 className="font-semibold text-gray-700 dark:text-slate-300 mb-3">Check Resource Availability</h3>
+                        <div className="flex flex-wrap gap-3 items-end">
+                            <div>
+                                <label className="block text-xs font-medium text-gray-600 dark:text-slate-400 mb-1">Resource</label>
+                                <select
+                                    value={availCheck.resourceId}
+                                    onChange={e => { setAvailCheck(a => ({ ...a, resourceId: e.target.value })); setAvailSlots(null); }}
+                                    className="border border-gray-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200"
+                                >
+                                    <option value="">Select resource…</option>
+                                    {resources.map(r => <option key={r.id} value={r.id}>{r.name} ({r.type})</option>)}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-medium text-gray-600 dark:text-slate-400 mb-1">Date</label>
+                                <input
+                                    type="date"
+                                    value={availCheck.date}
+                                    min={new Date().toISOString().split('T')[0]}
+                                    onChange={e => { setAvailCheck(a => ({ ...a, date: e.target.value })); setAvailSlots(null); }}
+                                    className="border border-gray-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200"
+                                />
+                            </div>
+                            <button
+                                onClick={checkAvailability}
+                                disabled={!availCheck.resourceId || !availCheck.date || availLoading}
+                                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 transition-colors"
+                            >
+                                {availLoading ? 'Checking…' : 'Check'}
+                            </button>
+                        </div>
+                        {availSlots !== null && (
+                            <div className="mt-4 grid grid-cols-3 sm:grid-cols-5 gap-2">
+                                {TIME_SLOTS.map(slot => (
+                                    <div
+                                        key={slot.start}
+                                        className={`rounded-lg p-2 text-center text-xs font-medium ${
+                                            isSlotAvailable(slot)
+                                                ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'
+                                                : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
+                                        }`}
+                                    >
+                                        <div>{slot.label}</div>
+                                        <div className="mt-0.5">{isSlotAvailable(slot) ? 'Free' : 'Booked'}</div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 )}
 

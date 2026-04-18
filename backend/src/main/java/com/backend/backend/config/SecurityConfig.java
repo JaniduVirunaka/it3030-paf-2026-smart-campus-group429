@@ -106,7 +106,7 @@ public class SecurityConfig {
             }
             mappedAuthorities.add(new SimpleGrantedAuthority("ROLE_USER"));
 
-            return new DefaultOidcUser(mappedAuthorities, oidcUser.getIdToken(), oidcUser.getUserInfo());
+            return new DefaultOidcUser(mappedAuthorities, oidcUser.getIdToken(), oidcUser.getUserInfo(), "email");
         };
     }
 

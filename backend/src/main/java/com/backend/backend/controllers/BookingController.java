@@ -72,7 +72,22 @@ public class BookingController {
                       .orElseGet(() -> new ResponseEntity<>(HttpStatus.NOT_FOUND));
     }
 
-    // 5. Update booking status (Approve, Reject, Cancel)
+    // 5. Get booked time slots for a resource on a date (used by booking form and admin checker)
+    @GetMapping("/booked-slots")
+    public ResponseEntity<?> getBookedSlots(
+            @RequestParam String resourceId,
+            @RequestParam String date
+    ) {
+        try {
+            java.time.LocalDate localDate = java.time.LocalDate.parse(date);
+            return ResponseEntity.ok(bookingService.getBookedSlots(resourceId, localDate));
+        } catch (Exception e) {
+            log.error("Failed to get booked slots: {}", e.getMessage(), e);
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
+        }
+    }
+
+    // 6. Update booking status (Approve, Reject, Cancel)
     @PutMapping("/{id}/status")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> updateBookingStatus(
