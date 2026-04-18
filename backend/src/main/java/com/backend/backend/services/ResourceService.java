@@ -12,6 +12,7 @@ import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.domain.PageImpl;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @Service
@@ -112,5 +113,33 @@ public class ResourceService {
         List<Resource> paginatedResources = mongoTemplate.find(query, Resource.class);
 
         return new PageImpl<>(paginatedResources, pageable, totalCount);
+    }
+
+    public Map<String, Object> getResourceStats() {
+        List<Resource> all = resourceRepository.findAll();
+
+        long total = all.stream().filter(r -> !"ARCHIVED".equals(r.getStatus())).count();
+        long active = all.stream().filter(r -> "ACTIVE".equals(r.getStatus())).count();
+        long outOfService = all.stream().filter(r -> "OUT_OF_SERVICE".equals(r.getStatus())).count();
+        long archived = all.stream().filter(r -> "ARCHIVED".equals(r.getStatus())).count();
+
+        Map<String, Long> byType = new java.util.LinkedHashMap<>();
+        all.stream()
+            .filter(r -> !"ARCHIVED".equals(r.getStatus()))
+            .forEach(r -> byType.merge(r.getType(), 1L, Long::sum));
+
+        long avgCapacity = Math.round(all.stream()
+            .filter(r -> r.getCapacity() > 0 && !"ARCHIVED".equals(r.getStatus()))
+            .mapToInt(Resource::getCapacity)
+            .average().orElse(0.0));
+
+        Map<String, Object> stats = new java.util.LinkedHashMap<>();
+        stats.put("total", total);
+        stats.put("active", active);
+        stats.put("outOfService", outOfService);
+        stats.put("archived", archived);
+        stats.put("byType", byType);
+        stats.put("averageCapacity", avgCapacity);
+        return stats;
     }
 }

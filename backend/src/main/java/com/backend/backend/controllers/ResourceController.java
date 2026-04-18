@@ -23,6 +23,7 @@ import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets; // NEW: To handle text encoding
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -64,6 +65,12 @@ public class ResourceController {
             e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
+    }
+
+    // GET - Resource statistics summary for admin dashboard
+    @GetMapping("/stats")
+    public ResponseEntity<Map<String, Object>> getResourceStats() {
+        return ResponseEntity.ok(resourceService.getResourceStats());
     }
 
     // GET - Retrieve a single specific resource by its ID

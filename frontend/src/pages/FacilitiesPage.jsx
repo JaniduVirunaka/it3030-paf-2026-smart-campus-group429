@@ -29,6 +29,9 @@ const FacilitiesPage = () => {
     const [totalPages, setTotalPages] = useState(0);
     const [totalElements, setTotalElements] = useState(0);
 
+    // --- Stats State ---
+    const [stats, setStats] = useState(null);
+
     useEffect(() => {
         const loadResources = async () => {
             try {
@@ -57,6 +60,13 @@ const FacilitiesPage = () => {
     }, [searchTerm, filterType, filterStatus, minCapacity, currentPage, pageSize]);
 
     const isAdmin = user?.roles?.includes('ROLE_ADMIN');
+
+    const refreshStats = () => {
+        if (!isAdmin) return;
+        fetchFromAPI('/resources/stats').then(data => setStats(data)).catch(() => {});
+    };
+
+    useEffect(() => { refreshStats(); }, [isAdmin]);
 
     // Reset to page 0 when user types a new search or changes a filter
     const handleSearchChange = (e) => { setSearchTerm(e.target.value); setCurrentPage(0); };
@@ -115,7 +125,8 @@ const FacilitiesPage = () => {
             }
             
             setFormData({ name: '', type: 'LECTURE_HALL', capacity: '', location: '', availabilityWindows: '', status: 'ACTIVE', imageBase64: '' });
-            
+            refreshStats();
+
         } catch {
             setPageError('An unexpected error occurred while saving.');
         }
@@ -132,6 +143,7 @@ const FacilitiesPage = () => {
         try {
             await fetchFromAPI(`/resources/${id}`, { method: 'DELETE' });
             setResources(resources.filter(r => r.id !== id));
+            refreshStats();
         } catch {
             setPageError('Failed to delete resource.');
         }
@@ -262,6 +274,47 @@ const FacilitiesPage = () => {
                         </div>
                     )}
                 </div>
+
+                {/* Stats Panel */}
+                {isAdmin && stats && (
+                    <div className="mb-8">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                            {[
+                                { label: 'Total Resources', value: stats.total, icon: '🏛️', bg: 'bg-blue-50 dark:bg-blue-900/20', text: 'text-blue-700 dark:text-blue-300', border: 'border-blue-200 dark:border-blue-800' },
+                                { label: 'Active', value: stats.active, icon: '🟢', bg: 'bg-emerald-50 dark:bg-emerald-900/20', text: 'text-emerald-700 dark:text-emerald-300', border: 'border-emerald-200 dark:border-emerald-800' },
+                                { label: 'Out of Service', value: stats.outOfService, icon: '🔴', bg: 'bg-red-50 dark:bg-red-900/20', text: 'text-red-700 dark:text-red-300', border: 'border-red-200 dark:border-red-800' },
+                                { label: 'Avg Capacity', value: stats.averageCapacity > 0 ? `${stats.averageCapacity} people` : 'N/A', icon: '👥', bg: 'bg-purple-50 dark:bg-purple-900/20', text: 'text-purple-700 dark:text-purple-300', border: 'border-purple-200 dark:border-purple-800' },
+                            ].map(card => (
+                                <div key={card.label} className={`${card.bg} border ${card.border} rounded-xl p-4 shadow-sm`}>
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <span className="text-lg">{card.icon}</span>
+                                        <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{card.label}</p>
+                                    </div>
+                                    <p className={`text-3xl font-extrabold ${card.text}`}>{card.value}</p>
+                                </div>
+                            ))}
+                        </div>
+                        {stats.byType && Object.keys(stats.byType).length > 0 && (
+                            <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4 shadow-sm">
+                                <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Breakdown by Type</p>
+                                <div className="space-y-2">
+                                    {Object.entries(stats.byType).map(([type, count]) => (
+                                        <div key={type} className="flex items-center gap-3">
+                                            <span className="text-xs font-medium text-slate-600 dark:text-slate-300 w-36 shrink-0">{type.replace(/_/g, ' ')}</span>
+                                            <div className="flex-1 bg-slate-100 dark:bg-slate-700 rounded-full h-2.5">
+                                                <div
+                                                    className="bg-blue-500 h-2.5 rounded-full transition-all duration-500"
+                                                    style={{ width: `${Math.round((count / stats.total) * 100)}%` }}
+                                                />
+                                            </div>
+                                            <span className="text-xs font-bold text-slate-700 dark:text-slate-200 w-6 text-right">{count}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                )}
 
                 {/* Form Section */}
                 {isAdmin && (
