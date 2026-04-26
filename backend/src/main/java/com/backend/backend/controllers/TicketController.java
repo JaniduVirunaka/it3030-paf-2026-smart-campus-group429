@@ -54,9 +54,10 @@ public class TicketController {
     // 3. GET SINGLE TICKET (GET)
     @GetMapping("/{id}")
     public ResponseEntity<Ticket> getTicketById(@PathVariable String id, Authentication authentication) {
+        if (authentication == null) return ResponseEntity.status(401).build();
         Optional<Ticket> ticket = ticketService.getTicketById(id);
         if (ticket.isEmpty()) return ResponseEntity.notFound().build();
-        
+
         boolean isAdmin = authentication.getAuthorities().stream()
                 .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
         
@@ -70,6 +71,7 @@ public class TicketController {
     // 4. UPDATE TICKET (PUT)
     @PutMapping("/{id}")
     public ResponseEntity<?> updateTicket(@PathVariable String id, @RequestBody Ticket ticketDetails, Authentication authentication) {
+        if (authentication == null) return ResponseEntity.status(401).build();
         Optional<Ticket> ticketOpt = ticketService.getTicketById(id);
         if (ticketOpt.isEmpty()) return ResponseEntity.notFound().build();
 
@@ -105,6 +107,7 @@ public class TicketController {
     // 5. DELETE TICKET (DELETE)
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deleteTicket(@PathVariable String id, Authentication authentication) {
+        if (authentication == null) return ResponseEntity.status(401).build();
         Optional<Ticket> ticketOpt = ticketService.getTicketById(id);
         if (ticketOpt.isEmpty()) return ResponseEntity.notFound().build();
 
