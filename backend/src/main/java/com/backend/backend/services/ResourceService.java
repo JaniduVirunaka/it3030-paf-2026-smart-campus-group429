@@ -24,24 +24,24 @@ public class ResourceService {
     @Autowired
     private MongoTemplate mongoTemplate;
 
-    // 1. CREATE (Will be used for POST)
+    // 1. 
     // Saves a brand new resource to the database
     public Resource createResource(Resource resource) {
         return resourceRepository.save(resource);
     }
 
-    // READ (Will be used for GET by ID)
+    // READ 
     // Fetches a specific resource, if it exists
     public Optional<Resource> getResourceById(String id) {
         return resourceRepository.findById(id);
     }
 
-    // NEW METHOD for the Export feature: Fetches absolutely everything
+    //Export feature: Fetches absolutely everything
     public List<Resource> getAllResourcesIncludingArchived() {
         return resourceRepository.findAll(); 
     }
 
-    // 3. UPDATE (Will be used for PUT)
+    // 3. UPDATE
     // Finds an existing resource and updates its details
     public Resource updateResource(String id, Resource resourceDetails) {
         Optional<Resource> existingResource = resourceRepository.findById(id);
@@ -57,11 +57,11 @@ public class ResourceService {
             updatedResource.setImageBase64(resourceDetails.getImageBase64());
             return resourceRepository.save(updatedResource);
         }
-        return null; // In the next step, we will make the Controller handle this 'null' gracefully
+        return null;
     }
 
-    // 4. DELETE (Will be used for DELETE)
-    // NEW: Soft Deletion Logic
+    // 4. DELETE
+    //Soft Deletion Logic
     public boolean softDeleteResource(String id) {
         Optional<Resource> resourceOpt = resourceRepository.findById(id);
         if (resourceOpt.isPresent()) {
@@ -115,6 +115,7 @@ public class ResourceService {
         return new PageImpl<>(paginatedResources, pageable, totalCount);
     }
 
+    // 6. Statistics Endpoint
     public Map<String, Object> getResourceStats() {
         List<Resource> all = resourceRepository.findAll();
 

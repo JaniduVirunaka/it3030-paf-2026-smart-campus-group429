@@ -59,6 +59,8 @@ const FacilitiesPage = () => {
         return () => clearTimeout(delayDebounceFn);
     }, [searchTerm, filterType, filterStatus, minCapacity, currentPage, pageSize]);
 
+
+    
     const isAdmin = user?.roles?.includes('ROLE_ADMIN');
 
     const refreshStats = () => {

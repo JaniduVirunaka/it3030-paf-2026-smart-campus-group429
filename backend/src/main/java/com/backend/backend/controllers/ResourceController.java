@@ -23,7 +23,6 @@ import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets; // NEW: To handle text encoding
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -101,7 +100,7 @@ public class ResourceController {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("success", false, "message", "Resource not found."));
     }
 
-    // 5. NEW: Generate QR Code for a specific resource
+    // 5. Generate QR Code for a specific resource
     @GetMapping(value = "/{id}/qrcode", produces = MediaType.IMAGE_PNG_VALUE)
     public ResponseEntity<byte[]> generateResourceQRCode(@PathVariable String id) {
         try {
@@ -164,7 +163,7 @@ public class ResourceController {
         writer.close();
     }
 
-    // NEW: IMPORT ENDPOINT
+    // IMPORT ENDPOINT
     @PostMapping("/import")
     public ResponseEntity<Map<String, String>> importResourcesFromCSV(@RequestParam("file") MultipartFile file) {
         Map<String, String> response = new HashMap<>();
